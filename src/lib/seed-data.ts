@@ -1,6 +1,65 @@
-import { Lead, CadenceStage, Meeting, Project, Task, CadenceTemplate } from '@/types/crm';
+import { Lead, CadenceStage, Meeting, Project, Task, CadenceTemplate, Niche } from '@/types/crm';
 import { getTodayISO, addDays } from './date-utils';
 import { DEFAULT_CADENCE_TEMPLATES } from './whatsapp';
+
+export const DEFAULT_NICHES: Niche[] = [
+  {
+    id: 'niche-ecommerce',
+    name: 'E-commerce & D2C',
+    description: 'Online direct-to-consumer brands, Shopify stores, and retail scales',
+    color: 'emerald',
+    icon: 'ShoppingBag',
+    targetAudience: 'Brand Founders, CMOs, Growth Heads',
+  },
+  {
+    id: 'niche-saas',
+    name: 'SaaS & Tech',
+    description: 'B2B Software companies, AI tools, cloud platforms, and dev tech',
+    color: 'cyan',
+    icon: 'Cpu',
+    targetAudience: 'Tech Founders, Product Directors, VPs of Sales',
+  },
+  {
+    id: 'niche-realestate',
+    name: 'Real Estate & Property',
+    description: 'Commercial brokers, property developers, luxury estate firms',
+    color: 'amber',
+    icon: 'Building2',
+    targetAudience: 'Brokerage Owners, Property Developers, Realtors',
+  },
+  {
+    id: 'niche-agency',
+    name: 'Agencies & Media',
+    description: 'Digital marketing, SEO, creative branding, and video production houses',
+    color: 'purple',
+    icon: 'Megaphone',
+    targetAudience: 'Agency Owners, Managing Partners, Media Buyers',
+  },
+  {
+    id: 'niche-finance',
+    name: 'Finance & Fintech',
+    description: 'Wealth management, private equity, fintech apps, accounting firms',
+    color: 'blue',
+    icon: 'Briefcase',
+    targetAudience: 'Managing Directors, Wealth Advisors, CFOs',
+  },
+  {
+    id: 'niche-health',
+    name: 'Healthcare & Wellness',
+    description: 'Med-spas, private clinics, healthtech apps, wellness franchises',
+    color: 'rose',
+    icon: 'Activity',
+    targetAudience: 'Clinic Directors, Practice Managers, Founders',
+  },
+  {
+    id: 'niche-coaching',
+    name: 'Coaching & High-Ticket',
+    description: 'Business coaches, masterminds, course creators, elite consultants',
+    color: 'orange',
+    icon: 'Sparkles',
+    targetAudience: 'Solo Consultants, Thought Leaders, Course Creators',
+  },
+];
 
 export function getInitialSeedData(): {
   leads: Lead[];
@@ -9,6 +68,7 @@ export function getInitialSeedData(): {
   projects: Project[];
   tasks: Task[];
   templates: CadenceTemplate[];
+  niches: Niche[];
 } {
   const today = getTodayISO();
   const yesterday = addDays(today, -1);
@@ -30,6 +90,7 @@ export function getInitialSeedData(): {
       company: 'Apex Tech Solutions',
       email: 'tanvir@apextech.io',
       source: 'LinkedIn',
+      niche: 'SaaS & Tech',
       currentStage: 0,
       killSwitchStatus: 'active',
       value: 3500,
@@ -49,6 +110,7 @@ export function getInitialSeedData(): {
       company: 'CloudScale AI',
       email: 'sjenkins@cloudscale.ai',
       source: 'Referral',
+      niche: 'SaaS & Tech',
       currentStage: 1,
       killSwitchStatus: 'active',
       value: 6000,
@@ -68,6 +130,7 @@ export function getInitialSeedData(): {
       company: 'FinEdge Capital',
       email: 'o.smith@finedge.co.uk',
       source: 'Cold Inbound',
+      niche: 'Finance & Fintech',
       currentStage: 2,
       killSwitchStatus: 'active',
       value: 4800,
@@ -87,6 +150,7 @@ export function getInitialSeedData(): {
       company: 'Gulf Oasis Ventures',
       email: 'zayed@gulfoasis.ae',
       source: 'Conference',
+      niche: 'Real Estate & Property',
       currentStage: 3,
       killSwitchStatus: 'active',
       value: 12000,
@@ -106,6 +170,7 @@ export function getInitialSeedData(): {
       company: 'Berlin SaaS Hub',
       email: 'max@berlinsaas.de',
       source: 'Twitter/X',
+      niche: 'Agencies & Media',
       currentStage: 4,
       killSwitchStatus: 'active',
       value: 4200,
@@ -125,6 +190,7 @@ export function getInitialSeedData(): {
       company: 'Sydney Media Group',
       email: 'liam@sydneymedia.com.au',
       source: 'Upwork',
+      niche: 'Agencies & Media',
       currentStage: 5,
       killSwitchStatus: 'active',
       value: 2900,
@@ -144,6 +210,7 @@ export function getInitialSeedData(): {
       company: 'NorthStar Logistics',
       email: 'elena@northstar.ca',
       source: 'Website',
+      niche: 'E-commerce & D2C',
       currentStage: 1,
       killSwitchStatus: 'booked_meeting',
       killSwitchReason: 'Meeting booked from FU 1 response',
@@ -164,6 +231,7 @@ export function getInitialSeedData(): {
       company: 'LionCity Ventures',
       email: 'marcus@lioncity.sg',
       source: 'LinkedIn',
+      niche: 'SaaS & Tech',
       currentStage: 0,
       killSwitchStatus: 'active',
       value: 5000,
@@ -460,5 +528,6 @@ export function getInitialSeedData(): {
     projects,
     tasks,
     templates: DEFAULT_CADENCE_TEMPLATES,
+    niches: DEFAULT_NICHES,
   };
 }

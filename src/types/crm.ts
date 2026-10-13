@@ -43,6 +43,7 @@ export type Lead = {
   company?: string;
   email?: string;
   source: LeadSource;
+  niche?: string;
   currentStage: CadenceStageNumber;
   killSwitchStatus: KillSwitchStatus;
   killSwitchReason?: string;
@@ -118,3 +119,27 @@ export type CadenceTemplate = {
 };
 
 export type AnalyticsTimeRange = '7d' | '15d' | '30d' | 'all';
+
+export type Niche = {
+  id: string;
+  name: string;
+  description?: string;
+  color?: string; // Accent color theme e.g. "emerald", "cyan", "amber", "purple"
+  icon?: string;
+  targetAudience?: string;
+};
+
+export type UserRole = 'admin' | 'hunter' | 'closer' | 'member';
+
+export type UserAccount = {
+  id: string;
+  name: string;
+  email: string;
+  passwordHash: string; // Admin-assigned password
+  role: UserRole;
+  isActive: boolean;
+  createdAt: string;
+  lastLogin?: string;
+};
+
+export type CRMTab = 'today' | 'leads' | 'niches' | 'meetings' | 'projects' | 'analytics' | 'users';

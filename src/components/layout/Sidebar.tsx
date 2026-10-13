@@ -12,19 +12,25 @@ import {
   FileCode,
   ShieldCheck,
   Flame,
+  Layers,
+  UserCog,
 } from 'lucide-react';
+import { useAuthStore } from '@/lib/auth-store';
 
 interface SidebarProps {
   onOpenTemplates: () => void;
+  onOpenUserManagement?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ onOpenTemplates }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onOpenTemplates, onOpenUserManagement }) => {
   const activeTab = useCRMStore((s) => s.activeTab);
   const setActiveTab = useCRMStore((s) => s.setActiveTab);
   const stages = useCRMStore((s) => s.stages);
   const leads = useCRMStore((s) => s.leads);
   const meetings = useCRMStore((s) => s.meetings);
   const projects = useCRMStore((s) => s.projects);
+  const niches = useCRMStore((s) => s.niches);
+  const currentUser = useAuthStore((s) => s.currentUser);
 
   const today = getTodayISO();
 
@@ -57,6 +63,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenTemplates }) => {
       icon: Users,
       badge: leads.length,
       badgeColor: 'bg-zinc-800 text-zinc-400',
+    },
+    {
+      id: 'niches',
+      label: 'Niches',
+      shortcut: 'N',
+      icon: Layers,
+      badge: niches.length,
+      badgeColor: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
     },
     {
       id: 'meetings',
@@ -140,6 +154,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenTemplates }) => {
             <FileCode className="h-4 w-4 text-teal-400" />
             <span>Cadence Scripts</span>
           </button>
+
+          {currentUser?.role === 'admin' && onOpenUserManagement && (
+            <button
+              onClick={onOpenUserManagement}
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-rose-300 hover:text-white hover:bg-rose-500/10 border border-rose-500/20 transition-all mt-1"
+            >
+              <div className="flex items-center gap-2.5">
+                <UserCog className="h-4 w-4 text-rose-400" />
+                <span>Team & Access</span>
+              </div>
+              <span className="text-[9px] bg-rose-500/20 text-rose-300 px-1.5 py-0.5 rounded font-bold uppercase">
+                Admin
+              </span>
+            </button>
+          )}
         </div>
       </div>
 

@@ -26,6 +26,7 @@ import {
   Copy,
   Check,
   MessageCircle,
+  Layers,
 } from 'lucide-react';
 import { SCRIPT_VARIANTS_MAP, interpolateTemplate } from '@/lib/whatsapp';
 import { LeadResponseStatus } from '@/types/crm';
@@ -46,6 +47,9 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   const meetings = useCRMStore((s) => s.meetings);
   const tasks = useCRMStore((s) => s.tasks);
   const projects = useCRMStore((s) => s.projects);
+  const niches = useCRMStore((s) => s.niches);
+  const selectedNicheFilter = useCRMStore((s) => s.selectedNicheFilter);
+  const setSelectedNicheFilter = useCRMStore((s) => s.setSelectedNicheFilter);
   const searchQuery = useCRMStore((s) => s.searchQuery);
   const sendAndAutoAdvance = useCRMStore((s) => s.sendAndAutoAdvance);
   const setKillSwitch = useCRMStore((s) => s.setKillSwitch);
@@ -93,6 +97,11 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
       const matchCompany = lead.company?.toLowerCase().includes(q);
       const matchCountry = lead.countryName.toLowerCase().includes(q);
       if (!matchName && !matchPhone && !matchCompany && !matchCountry) return false;
+    }
+
+    // Filter by Niche if selected
+    if (selectedNicheFilter !== 'all' && lead.niche !== selectedNicheFilter) {
+      return false;
     }
 
     return true;
@@ -229,10 +238,49 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
 
       {/* 3. Action Buckets / Tabs */}
       <section className="space-y-4">
+        {/* Niche Filter Bar */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none bg-zinc-900/50 p-2.5 rounded-2xl border border-zinc-800/80">
+          <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider shrink-0 flex items-center gap-1.5 ml-1">
+            <Layers className="h-3.5 w-3.5 text-emerald-400" />
+            Niche:
+          </span>
+          <button
+            onClick={() => setSelectedNicheFilter('all')}
+            className={`rounded-xl px-2.5 py-1 text-xs font-semibold shrink-0 transition-all ${
+              selectedNicheFilter === 'all'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'border border-zinc-700/60 bg-zinc-800/80 text-zinc-300 hover:text-white'
+            }`}
+          >
+            All Niches
+          </button>
+          {niches.map((n) => {
+            const isSelected = selectedNicheFilter === n.name;
+            return (
+              <button
+                key={n.id}
+                onClick={() => setSelectedNicheFilter(n.name)}
+                className={`rounded-xl px-2.5 py-1 text-xs font-semibold shrink-0 transition-all ${
+                  isSelected
+                    ? 'bg-emerald-600 text-white shadow-sm'
+                    : 'border border-zinc-700/60 bg-zinc-800/80 text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                {n.name}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3">
           <div>
-            <h2 className="text-lg font-bold text-zinc-100 tracking-tight">
+            <h2 className="text-lg font-bold text-zinc-100 tracking-tight flex items-center gap-2">
               Action Queues Due Today
+              {selectedNicheFilter !== 'all' && (
+                <span className="text-xs font-normal text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  Niche: {selectedNicheFilter}
+                </span>
+              )}
             </h2>
             <p className="text-xs text-zinc-400">
               Zero-friction click-to-chat with automatic follow-up stage advancement
@@ -348,9 +396,16 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                         isoCode={lead.isoCode}
                         prefilledText={currentScriptText}
                       />
-                      <span className="rounded-md bg-zinc-800/60 px-2 py-0.5 text-[11px] text-zinc-400">
-                        Source: {lead.source}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        {lead.niche && (
+                          <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
+                            {lead.niche}
+                          </span>
+                        )}
+                        <span className="rounded-md bg-zinc-800/60 px-2 py-0.5 text-[11px] text-zinc-400">
+                          Source: {lead.source}
+                        </span>
+                      </div>
                     </div>
 
                     {/* Script Preview, Variant Switcher & Quick Edit */}

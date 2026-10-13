@@ -33,6 +33,9 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   const deleteLead = useCRMStore((s) => s.deleteLead);
   const setKillSwitch = useCRMStore((s) => s.setKillSwitch);
   const searchQuery = useCRMStore((s) => s.searchQuery);
+  const niches = useCRMStore((s) => s.niches);
+  const selectedNicheFilter = useCRMStore((s) => s.selectedNicheFilter);
+  const setSelectedNicheFilter = useCRMStore((s) => s.setSelectedNicheFilter);
 
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
   const [filterStage, setFilterStage] = useState<string>('all');
@@ -59,7 +62,8 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         const matchPhone = lead.phoneRaw.includes(q);
         const matchCompany = lead.company?.toLowerCase().includes(q);
         const matchCountry = lead.countryName.toLowerCase().includes(q);
-        if (!matchName && !matchPhone && !matchCompany && !matchCountry) return false;
+        const matchNiche = lead.niche?.toLowerCase().includes(q);
+        if (!matchName && !matchPhone && !matchCompany && !matchCountry && !matchNiche) return false;
       }
 
       if (filterStage !== 'all' && lead.currentStage !== parseInt(filterStage, 10)) {
@@ -74,9 +78,13 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         return false;
       }
 
+      if (selectedNicheFilter !== 'all' && lead.niche !== selectedNicheFilter) {
+        return false;
+      }
+
       return true;
     });
-  }, [leads, searchQuery, filterStage, filterStatus, filterCountry]);
+  }, [leads, searchQuery, filterStage, filterStatus, filterCountry, selectedNicheFilter]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
@@ -177,6 +185,20 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
             </option>
           ))}
         </select>
+
+        {/* Niche Filter */}
+        <select
+          value={selectedNicheFilter}
+          onChange={(e) => setSelectedNicheFilter(e.target.value)}
+          className="rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none font-medium"
+        >
+          <option value="all">All Niches</option>
+          {niches.map((n) => (
+            <option key={n.id} value={n.name}>
+              {n.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Render Mode: Table */}
@@ -199,9 +221,16 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                 <tr key={lead.id} className="hover:bg-zinc-800/40 transition-colors">
                   <td className="px-4 py-3.5">
                     <div className="font-bold text-zinc-100 text-sm">{lead.name}</div>
-                    {lead.company && (
-                      <div className="text-zinc-400 text-xs mt-0.5">{lead.company}</div>
-                    )}
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {lead.company && (
+                        <span className="text-zinc-400 text-xs">{lead.company}</span>
+                      )}
+                      {lead.niche && (
+                        <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-400">
+                          {lead.niche}
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   <td className="px-4 py-3.5">
@@ -304,6 +333,13 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                       </div>
                       {lead.company && (
                         <p className="text-[11px] text-zinc-400 truncate">{lead.company}</p>
+                      )}
+                      {lead.niche && (
+                        <div className="pt-0.5">
+                          <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-semibold text-emerald-400">
+                            {lead.niche}
+                          </span>
+                        </div>
                       )}
                       <PhoneBadge
                         phone={lead.phoneRaw}

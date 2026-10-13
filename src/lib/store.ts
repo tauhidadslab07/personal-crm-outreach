@@ -11,8 +11,10 @@ import {
   KillSwitchStatus,
   MeetingOutcome,
   LeadResponseStatus,
+  Niche,
+  CRMTab,
 } from '@/types/crm';
-import { getInitialSeedData } from './seed-data';
+import { getInitialSeedData, DEFAULT_NICHES } from './seed-data';
 import { addDays, CADENCE_INTERVAL_DAYS, getTodayISO, STAGE_TITLES } from './date-utils';
 import { buildWhatsAppUrl, getPrefilledMessageForStage } from './whatsapp';
 import { parsePhoneAndDetectCountry, sanitizePhoneForWhatsApp } from './phone';
@@ -25,16 +27,23 @@ interface CRMState {
   projects: Project[];
   tasks: Task[];
   templates: CadenceTemplate[];
-  activeTab: 'today' | 'leads' | 'meetings' | 'projects' | 'analytics';
+  niches: Niche[];
+  activeTab: CRMTab;
   searchQuery: string;
+  selectedNicheFilter: string;
   dailyGoal: number;
   streakDays: number;
 
   // Actions
-  setActiveTab: (tab: 'today' | 'leads' | 'meetings' | 'projects' | 'analytics') => void;
+  setActiveTab: (tab: CRMTab) => void;
   setSearchQuery: (q: string) => void;
+  setSelectedNicheFilter: (niche: string) => void;
   resetToSampleData: () => void;
   setDailyGoal: (goal: number) => void;
+
+  // Niche Actions
+  addNiche: (input: { name: string; description?: string; color?: string; targetAudience?: string }) => Niche;
+  deleteNiche: (id: string) => void;
 
   // Lead Actions
   addLead: (leadInput: {
@@ -43,15 +52,20 @@ interface CRMState {
     company?: string;
     email?: string;
     source: Lead['source'];
+    niche?: string;
     value?: number;
     tags?: string[];
   }) => Lead;
-  addBulkLeads: (leadsInput: Array<{
-    name: string;
-    phoneRaw: string;
-    company?: string;
-    source?: Lead['source'];
-  }>) => number;
+  addBulkLeads: (
+    leadsInput: Array<{
+      name: string;
+      phoneRaw: string;
+      company?: string;
+      source?: Lead['source'];
+      niche?: string;
+    }>,
+    defaultNiche?: string
+  ) => number;
   updateLead: (id: string, updates: Partial<Lead>) => void;
   deleteLead: (id: string) => void;
   setKillSwitch: (leadId: string, status: KillSwitchStatus, reason?: string) => void;
@@ -88,15 +102,40 @@ export const useCRMStore = create<CRMState>()(
       ...getInitialSeedData(),
       activeTab: 'today',
       searchQuery: '',
+      selectedNicheFilter: 'all',
       dailyGoal: 20,
       streakDays: 4,
 
       setActiveTab: (tab) => set({ activeTab: tab }),
       setSearchQuery: (query) => set({ searchQuery: query }),
+      setSelectedNicheFilter: (niche) => set({ selectedNicheFilter: niche }),
       setDailyGoal: (goal) => set({ dailyGoal: Math.max(1, goal) }),
 
       resetToSampleData: () => {
-        set({ ...getInitialSeedData(), searchQuery: '', dailyGoal: 20, streakDays: 4 });
+        set({ ...getInitialSeedData(), searchQuery: '', selectedNicheFilter: 'all', dailyGoal: 20, streakDays: 4 });
+      },
+
+      addNiche: (input) => {
+        const id = `niche-${Date.now()}`;
+        const newNiche: Niche = {
+          id,
+          name: input.name.trim(),
+          description: input.description?.trim(),
+          color: input.color || 'emerald',
+          targetAudience: input.targetAudience?.trim(),
+        };
+
+        set((state) => ({
+          niches: [...state.niches, newNiche],
+        }));
+
+        return newNiche;
+      },
+
+      deleteNiche: (id) => {
+        set((state) => ({
+          niches: state.niches.filter((n) => n.id !== id),
+        }));
       },
 
       addLead: (leadInput) => {
@@ -117,6 +156,7 @@ export const useCRMStore = create<CRMState>()(
           company: leadInput.company?.trim(),
           email: leadInput.email?.trim(),
           source: leadInput.source || 'Other',
+          niche: leadInput.niche?.trim() || 'General',
           currentStage: 0,
           killSwitchStatus: 'active',
           value: leadInput.value || 0,
@@ -150,7 +190,7 @@ export const useCRMStore = create<CRMState>()(
         return newLead;
       },
 
-      addBulkLeads: (leadsInput) => {
+      addBulkLeads: (leadsInput, defaultNiche) => {
         const today = getTodayISO();
         const templates = get().templates;
         const newLeads: Lead[] = [];
@@ -173,6 +213,7 @@ export const useCRMStore = create<CRMState>()(
             flagEmoji: country.flagEmoji || '🌐',
             company: input.company?.trim(),
             source: input.source || 'Other',
+            niche: input.niche?.trim() || defaultNiche?.trim() || 'General',
             currentStage: 0,
             killSwitchStatus: 'active',
             tags: ['Bulk Imported'],

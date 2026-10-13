@@ -3,7 +3,7 @@
 import React from 'react';
 import { useCRMStore } from '@/lib/store';
 import { getTodayISO, isOverdue } from '@/lib/date-utils';
-import { Zap, Users, Calendar, FolderKanban, BarChart3 } from 'lucide-react';
+import { Zap, Users, Calendar, FolderKanban, BarChart3, Layers } from 'lucide-react';
 
 export const BottomNav: React.FC = () => {
   const activeTab = useCRMStore((s) => s.activeTab);
@@ -31,6 +31,11 @@ export const BottomNav: React.FC = () => {
       id: 'leads',
       label: 'Leads',
       icon: Users,
+    },
+    {
+      id: 'niches',
+      label: 'Niches',
+      icon: Layers,
     },
     {
       id: 'meetings',

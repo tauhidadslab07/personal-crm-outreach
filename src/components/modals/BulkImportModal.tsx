@@ -34,7 +34,9 @@ Liam O'Connor, +61 412 345 678, Upwork, Sydney Media`;
 
 export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClose }) => {
   const addBulkLeads = useCRMStore((s) => s.addBulkLeads);
+  const niches = useCRMStore((s) => s.niches);
   const [inputText, setInputText] = useState('');
+  const [batchNiche, setBatchNiche] = useState(niches[0]?.name || 'General');
 
   // Live parser for lines
   const parsedRows: ParsedRow[] = useMemo(() => {
@@ -109,7 +111,9 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
         phoneRaw: r.phoneRaw,
         company: r.company || undefined,
         source: r.source,
-      }))
+        niche: batchNiche,
+      })),
+      batchNiche
     );
 
     setInputText('');
@@ -129,6 +133,25 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
       maxWidth="xl"
     >
       <div className="space-y-4">
+        {/* Niche Selector for the Batch */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-zinc-900/90 p-3 rounded-2xl border border-zinc-800">
+          <label className="text-xs font-bold text-zinc-200 uppercase tracking-wider">
+            Assign Industry Niche to this Batch:
+          </label>
+          <select
+            value={batchNiche}
+            onChange={(e) => setBatchNiche(e.target.value)}
+            className="rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none font-medium"
+          >
+            {niches.map((n) => (
+              <option key={n.id} value={n.name}>
+                {n.name}
+              </option>
+            ))}
+            <option value="General">General</option>
+          </select>
+        </div>
+
         {/* Input Textarea Header */}
         <div className="flex items-center justify-between">
           <label className="text-xs font-semibold uppercase tracking-wider text-zinc-300">

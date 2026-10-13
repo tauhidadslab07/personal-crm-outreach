@@ -11,6 +11,7 @@ import { AlertTriangle, Check, UserPlus, Sparkles } from 'lucide-react';
 interface NewLeadModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialNiche?: string;
 }
 
 const SOURCES: LeadSource[] = [
@@ -24,14 +25,24 @@ const SOURCES: LeadSource[] = [
   'Other',
 ];
 
-export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose }) => {
+export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, initialNiche }) => {
   const addLead = useCRMStore((s) => s.addLead);
+  const niches = useCRMStore((s) => s.niches);
+
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
   const [source, setSource] = useState<LeadSource>('LinkedIn');
+  const [niche, setNiche] = useState(initialNiche || (niches[0]?.name || 'General'));
   const [value, setValue] = useState('');
   const [tagsInput, setTagsInput] = useState('');
+
+  // Sync initialNiche when opened
+  React.useEffect(() => {
+    if (initialNiche) {
+      setNiche(initialNiche);
+    }
+  }, [initialNiche]);
 
   const { phoneNumber, setPhoneNumber, countryInfo, isValid } = usePhoneDetection('');
 
@@ -50,6 +61,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose }) =
       company: company.trim() || undefined,
       email: email.trim() || undefined,
       source,
+      niche,
       value: value ? parseFloat(value) : 0,
       tags,
     });
@@ -176,8 +188,26 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose }) =
           </div>
         </div>
 
-        {/* Source & Potential Deal Size */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Niche & Source & Deal Value */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">
+              Niche / Industry *
+            </label>
+            <select
+              value={niche}
+              onChange={(e) => setNiche(e.target.value)}
+              className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all font-medium"
+            >
+              {niches.map((n) => (
+                <option key={n.id} value={n.name}>
+                  {n.name}
+                </option>
+              ))}
+              <option value="General">General / Other</option>
+            </select>
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">
               Lead Source
@@ -185,7 +215,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose }) =
             <select
               value={source}
               onChange={(e) => setSource(e.target.value as LeadSource)}
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-zinc-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+              className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
             >
               {SOURCES.map((s) => (
                 <option key={s} value={s}>

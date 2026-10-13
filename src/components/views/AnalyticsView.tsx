@@ -22,6 +22,7 @@ import {
   PieChart as PieIcon,
   DollarSign,
   Award,
+  Layers,
 } from 'lucide-react';
 
 export const AnalyticsView: React.FC = () => {
@@ -31,6 +32,19 @@ export const AnalyticsView: React.FC = () => {
   const projects = useCRMStore((s) => s.projects);
 
   const [timeRange, setTimeRange] = useState<AnalyticsTimeRange>('30d');
+
+  // Niche attribution
+  const nicheData = useMemo(() => {
+    const map = new Map<string, { niche: string; count: number; totalValue: number }>();
+    leads.forEach((l) => {
+      const n = l.niche || 'General';
+      const existing = map.get(n) || { niche: n, count: 0, totalValue: 0 };
+      existing.count += 1;
+      existing.totalValue += l.value || 0;
+      map.set(n, existing);
+    });
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  }, [leads]);
 
   // Funnel calculations
   const funnelData = useMemo(() => {
@@ -269,8 +283,36 @@ export const AnalyticsView: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Country & Lead Source Attribution */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* 3. Niche, Country & Lead Source Attribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Niche Breakdown */}
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 shadow-xl space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold text-zinc-100 uppercase tracking-wider flex items-center gap-2">
+              <Layers className="h-4 w-4 text-emerald-400" />
+              Niche Industry Breakdown
+            </h3>
+            <span className="text-xs text-zinc-400">{nicheData.length} niches</span>
+          </div>
+
+          <div className="space-y-2.5 max-h-64 overflow-y-auto">
+            {nicheData.map((n) => (
+              <div
+                key={n.niche}
+                className="flex items-center justify-between p-2.5 rounded-xl border border-zinc-800 bg-zinc-950/60 text-xs"
+              >
+                <span className="font-semibold text-zinc-100">{n.niche}</span>
+                <div className="flex items-center gap-3 font-mono">
+                  <span className="text-zinc-400">{n.count} leads</span>
+                  <span className="text-emerald-400 font-bold">
+                    ${n.totalValue.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Country Breakdown */}
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 shadow-xl space-y-4">
           <div className="flex items-center justify-between">
