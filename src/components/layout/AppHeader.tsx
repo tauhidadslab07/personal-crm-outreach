@@ -10,8 +10,10 @@ import {
   RotateCcw,
   Sparkles,
   Database,
+  Download,
 } from 'lucide-react';
 import { isSupabaseConfigured } from '@/lib/supabase';
+import { exportLeadsToCSV } from '@/lib/csv-export';
 
 interface AppHeaderProps {
   onOpenNewLead: () => void;
@@ -29,6 +31,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const searchQuery = useCRMStore((s) => s.searchQuery);
   const setSearchQuery = useCRMStore((s) => s.setSearchQuery);
   const resetToSampleData = useCRMStore((s) => s.resetToSampleData);
+  const leads = useCRMStore((s) => s.leads);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-zinc-800 bg-zinc-950/80 px-4 sm:px-6 backdrop-blur-md">
@@ -86,6 +89,16 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
       {/* Right Actions */}
       <div className="flex items-center gap-2">
+        {/* Export CSV button */}
+        <button
+          onClick={() => exportLeadsToCSV(leads)}
+          title="Export Leads to CSV / Excel"
+          className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all"
+        >
+          <Download className="h-3.5 w-3.5 text-emerald-400" />
+          <span className="hidden md:inline">Export CSV</span>
+        </button>
+
         {/* Scripts button */}
         <button
           onClick={onOpenTemplates}

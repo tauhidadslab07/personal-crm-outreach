@@ -16,7 +16,9 @@ import {
   List,
   Sparkles,
   ExternalLink,
+  Download,
 } from 'lucide-react';
+import { exportLeadsToCSV } from '@/lib/csv-export';
 
 interface LeadsPipelineViewProps {
   onScheduleMeeting: (leadId: string) => void;
@@ -110,6 +112,15 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
               <LayoutGrid className="h-4 w-4" />
             </button>
           </div>
+
+          <button
+            onClick={() => exportLeadsToCSV(filteredLeads)}
+            title="Export filtered leads to CSV"
+            className="flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/80 px-3 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-zinc-700 hover:text-white transition-all active:scale-95 shadow-sm"
+          >
+            <Download className="h-3.5 w-3.5 text-emerald-400" />
+            <span className="hidden sm:inline">Export CSV</span>
+          </button>
 
           <button
             onClick={onOpenNewLead}

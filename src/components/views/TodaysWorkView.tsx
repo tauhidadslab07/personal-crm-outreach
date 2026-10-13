@@ -23,7 +23,12 @@ import {
   Plus,
   Flame,
   ArrowRight,
+  Copy,
+  Check,
+  MessageCircle,
 } from 'lucide-react';
+import { SCRIPT_VARIANTS_MAP, interpolateTemplate } from '@/lib/whatsapp';
+import { LeadResponseStatus } from '@/types/crm';
 
 interface TodaysWorkViewProps {
   onScheduleMeetingForLead: (leadId: string) => void;
@@ -44,11 +49,32 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   const searchQuery = useCRMStore((s) => s.searchQuery);
   const sendAndAutoAdvance = useCRMStore((s) => s.sendAndAutoAdvance);
   const setKillSwitch = useCRMStore((s) => s.setKillSwitch);
+  const setResponseStatus = useCRMStore((s) => s.setResponseStatus);
+  const setLeadNote = useCRMStore((s) => s.setLeadNote);
   const toggleTask = useCRMStore((s) => s.toggleTask);
 
   const [activeBucket, setActiveBucket] = useState<'all' | CadenceStageNumber>('all');
   const [expandedScriptStageId, setExpandedScriptStageId] = useState<string | null>(null);
   const [editedScripts, setEditedScripts] = useState<Record<string, string>>({});
+  const [copiedStageId, setCopiedStageId] = useState<string | null>(null);
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
+
+  const handleCopyScript = (stageId: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedStageId(stageId);
+    setTimeout(() => {
+      setCopiedStageId(null);
+    }, 2000);
+  };
+
+  const handleVariantSelect = (stageId: string, lead: any, variantContent: string, variantId: string) => {
+    const interpolated = interpolateTemplate(variantContent, {
+      name: lead.name,
+      company: lead.company,
+    });
+    setEditedScripts((prev) => ({ ...prev, [stageId]: interpolated }));
+    setSelectedVariants((prev) => ({ ...prev, [stageId]: variantId }));
+  };
 
   const today = getTodayISO();
 
@@ -327,30 +353,74 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                       </span>
                     </div>
 
-                    {/* Script Preview & Quick Edit */}
-                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
+                    {/* Script Preview, Variant Switcher & Quick Edit */}
+                    <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-3 space-y-2.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                         <span className="font-semibold text-zinc-400 flex items-center gap-1.5">
                           <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
                           Pre-filled WhatsApp Script
                         </span>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedScriptStageId(isScriptExpanded ? null : stage.id)
-                          }
-                          className="text-[11px] text-emerald-400 hover:text-emerald-300 font-medium inline-flex items-center gap-1"
-                        >
-                          {isScriptExpanded ? (
-                            <>
-                              Collapse <ChevronUp className="h-3 w-3" />
-                            </>
-                          ) : (
-                            <>
-                              Tweak Message <ChevronDown className="h-3 w-3" />
-                            </>
-                          )}
-                        </button>
+
+                        <div className="flex items-center gap-1.5">
+                          {/* Script Variant Selector */}
+                          <select
+                            value={selectedVariants[stage.id] || ''}
+                            onChange={(e) => {
+                              const variant = SCRIPT_VARIANTS_MAP[stage.stageNumber]?.find(
+                                (x) => x.id === e.target.value
+                              );
+                              if (variant) {
+                                handleVariantSelect(stage.id, lead, variant.content, variant.id);
+                              }
+                            }}
+                            className="rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-[11px] font-medium text-zinc-300 focus:border-emerald-500 focus:outline-none cursor-pointer"
+                          >
+                            <option value="">Script Variant (A/B/C)...</option>
+                            {SCRIPT_VARIANTS_MAP[stage.stageNumber]?.map((v) => (
+                              <option key={v.id} value={v.id}>
+                                {v.label}
+                              </option>
+                            ))}
+                          </select>
+
+                          {/* Quick 1-Click Copy Script */}
+                          <button
+                            type="button"
+                            onClick={() => handleCopyScript(stage.id, currentScriptText)}
+                            className="inline-flex items-center gap-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 px-2 py-0.5 text-[11px] font-medium text-zinc-200 transition-colors"
+                            title="Copy message to clipboard"
+                          >
+                            {copiedStageId === stage.id ? (
+                              <>
+                                <Check className="h-3 w-3 text-emerald-400" />
+                                <span className="text-emerald-400 font-bold">Copied!</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3 w-3 text-zinc-400" />
+                                <span>Copy</span>
+                              </>
+                            )}
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedScriptStageId(isScriptExpanded ? null : stage.id)
+                            }
+                            className="text-[11px] text-emerald-400 hover:text-emerald-300 font-medium inline-flex items-center gap-0.5 ml-1"
+                          >
+                            {isScriptExpanded ? (
+                              <>
+                                Collapse <ChevronUp className="h-3 w-3" />
+                              </>
+                            ) : (
+                              <>
+                                Tweak <ChevronDown className="h-3 w-3" />
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
 
                       {isScriptExpanded ? (
@@ -367,6 +437,59 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                           &ldquo;{currentScriptText}&rdquo;
                         </p>
                       )}
+
+                      {/* Quick Response Status Tagging */}
+                      <div className="flex items-center justify-between flex-wrap gap-1.5 pt-2 border-t border-zinc-800/80">
+                        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
+                          Client Reply:
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setResponseStatus(lead.id, 'interested')}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                              lead.responseStatus === 'interested'
+                                ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 ring-1 ring-emerald-500/40'
+                                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-emerald-300'
+                            }`}
+                          >
+                            💬 Interested
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setResponseStatus(lead.id, 'later')}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                              lead.responseStatus === 'later'
+                                ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 ring-1 ring-amber-500/40'
+                                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-amber-300'
+                            }`}
+                          >
+                            ⏳ Follow Later
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setResponseStatus(lead.id, 'not_interested')}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-all ${
+                              lead.responseStatus === 'not_interested'
+                                ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 ring-1 ring-rose-500/40'
+                                : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-rose-300'
+                            }`}
+                          >
+                            ❌ Not Interested
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Quick Lead Note field */}
+                      <div className="pt-1">
+                        <input
+                          type="text"
+                          placeholder="Quick lead note (e.g. Sent voice note, prefers afternoon call)..."
+                          defaultValue={lead.notes || ''}
+                          onBlur={(e) => setLeadNote(lead.id, e.target.value)}
+                          className="w-full bg-zinc-900/90 border border-zinc-800 rounded-lg px-2.5 py-1 text-[11px] text-zinc-200 placeholder-zinc-500 focus:border-zinc-700 focus:outline-none"
+                        />
+                      </div>
                     </div>
                   </div>
 

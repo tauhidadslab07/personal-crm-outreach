@@ -29,6 +29,8 @@ export type KillSwitchStatus = 'active' | 'booked_meeting' | 'not_interested' | 
 
 export type LeadSource = 'LinkedIn' | 'Cold Inbound' | 'Referral' | 'Website' | 'Twitter/X' | 'Upwork' | 'Conference' | 'Other';
 
+export type LeadResponseStatus = 'none' | 'interested' | 'later' | 'not_interested';
+
 export type Lead = {
   id: string;
   name: string;
@@ -44,10 +46,18 @@ export type Lead = {
   currentStage: CadenceStageNumber;
   killSwitchStatus: KillSwitchStatus;
   killSwitchReason?: string;
+  responseStatus?: LeadResponseStatus;
+  notes?: string;
   value?: number; // Potential deal size in USD
   tags: string[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type ScriptVariant = {
+  id: string;
+  label: string; // e.g. "Direct Value", "Case Study", "Quick Question"
+  content: string;
 };
 
 export type MeetingOutcome = 'pending' | 'closed_won' | 'followup_needed' | 'lost';

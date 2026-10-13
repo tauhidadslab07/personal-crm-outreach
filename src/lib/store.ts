@@ -10,6 +10,7 @@ import {
   CadenceStageNumber,
   KillSwitchStatus,
   MeetingOutcome,
+  LeadResponseStatus,
 } from '@/types/crm';
 import { getInitialSeedData } from './seed-data';
 import { addDays, CADENCE_INTERVAL_DAYS, getTodayISO, STAGE_TITLES } from './date-utils';
@@ -26,11 +27,14 @@ interface CRMState {
   templates: CadenceTemplate[];
   activeTab: 'today' | 'leads' | 'meetings' | 'projects' | 'analytics';
   searchQuery: string;
+  dailyGoal: number;
+  streakDays: number;
 
   // Actions
   setActiveTab: (tab: 'today' | 'leads' | 'meetings' | 'projects' | 'analytics') => void;
   setSearchQuery: (q: string) => void;
   resetToSampleData: () => void;
+  setDailyGoal: (goal: number) => void;
 
   // Lead Actions
   addLead: (leadInput: {
@@ -51,6 +55,8 @@ interface CRMState {
   updateLead: (id: string, updates: Partial<Lead>) => void;
   deleteLead: (id: string) => void;
   setKillSwitch: (leadId: string, status: KillSwitchStatus, reason?: string) => void;
+  setResponseStatus: (leadId: string, status: LeadResponseStatus) => void;
+  setLeadNote: (leadId: string, note: string) => void;
 
   // Cadence Actions
   sendAndAutoAdvance: (stageId: string, customMessage?: string) => { whatsappUrl: string; nextStageCreated?: CadenceStage };
@@ -82,12 +88,15 @@ export const useCRMStore = create<CRMState>()(
       ...getInitialSeedData(),
       activeTab: 'today',
       searchQuery: '',
+      dailyGoal: 20,
+      streakDays: 4,
 
       setActiveTab: (tab) => set({ activeTab: tab }),
       setSearchQuery: (query) => set({ searchQuery: query }),
+      setDailyGoal: (goal) => set({ dailyGoal: Math.max(1, goal) }),
 
       resetToSampleData: () => {
-        set({ ...getInitialSeedData(), searchQuery: '' });
+        set({ ...getInitialSeedData(), searchQuery: '', dailyGoal: 20, streakDays: 4 });
       },
 
       addLead: (leadInput) => {
@@ -223,6 +232,37 @@ export const useCRMStore = create<CRMState>()(
                   ...lead,
                   killSwitchStatus: status,
                   killSwitchReason: reason || lead.killSwitchReason,
+                  updatedAt: today,
+                }
+              : lead
+          ),
+        }));
+      },
+
+      setResponseStatus: (leadId, status) => {
+        const today = getTodayISO();
+        set((state) => ({
+          leads: state.leads.map((lead) =>
+            lead.id === leadId
+              ? {
+                  ...lead,
+                  responseStatus: status,
+                  // If client is interested, optionally keep in mind or mark
+                  updatedAt: today,
+                }
+              : lead
+          ),
+        }));
+      },
+
+      setLeadNote: (leadId, note) => {
+        const today = getTodayISO();
+        set((state) => ({
+          leads: state.leads.map((lead) =>
+            lead.id === leadId
+              ? {
+                  ...lead,
+                  notes: note,
                   updatedAt: today,
                 }
               : lead
