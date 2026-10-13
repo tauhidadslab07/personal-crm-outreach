@@ -1,0 +1,16 @@
+{
+  "name": "Nexus Personal CRM & Outreach Engine",
+  "short_name": "Nexus CRM",
+  "description": "High-velocity client hunting, 5-stage automated WhatsApp cadences, intelligent meeting scheduling, and performance analytics.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#059669",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}
