@@ -11,18 +11,15 @@ import {
   YAxis,
   Tooltip,
   Cell,
-  PieChart,
-  Pie,
 } from 'recharts';
 import {
   BarChart3,
   TrendingDown,
   TrendingUp,
   Globe,
-  PieChart as PieIcon,
-  DollarSign,
   Award,
   Layers,
+  Users,
 } from 'lucide-react';
 
 export const AnalyticsView: React.FC = () => {
@@ -35,12 +32,11 @@ export const AnalyticsView: React.FC = () => {
 
   // Niche attribution
   const nicheData = useMemo(() => {
-    const map = new Map<string, { niche: string; count: number; totalValue: number }>();
+    const map = new Map<string, { niche: string; count: number }>();
     leads.forEach((l) => {
       const n = l.niche || 'General';
-      const existing = map.get(n) || { niche: n, count: 0, totalValue: 0 };
+      const existing = map.get(n) || { niche: n, count: 0 };
       existing.count += 1;
-      existing.totalValue += l.value || 0;
       map.set(n, existing);
     });
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
@@ -95,42 +91,25 @@ export const AnalyticsView: React.FC = () => {
 
   // Country Attribution
   const countryData = useMemo(() => {
-    const map = new Map<string, { country: string; flag: string; count: number; totalValue: number }>();
+    const map = new Map<string, { country: string; flag: string; count: number }>();
     leads.forEach((l) => {
       const existing = map.get(l.isoCode) || {
         country: l.countryName,
         flag: l.flagEmoji,
         count: 0,
-        totalValue: 0,
       };
       existing.count += 1;
-      existing.totalValue += l.value || 0;
       map.set(l.isoCode, existing);
     });
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
   }, [leads]);
 
-  // Lead Source Attribution
-  const sourceData = useMemo(() => {
-    const map = new Map<string, number>();
-    leads.forEach((l) => {
-      map.set(l.source, (map.get(l.source) || 0) + 1);
-    });
-    const colors = ['#10B981', '#0EA5E9', '#F59E0B', '#8B5CF6', '#EC4899', '#64748B'];
-    return Array.from(map.entries()).map(([name, value], idx) => ({
-      name,
-      value,
-      fill: colors[idx % colors.length],
-    }));
-  }, [leads]);
-
-  // Financial aggregates
+  // Financial aggregates from projects
   const financials = useMemo(() => {
-    const totalPipelineValue = leads.reduce((sum, l) => sum + (l.value || 0), 0);
     const realizedCash = projects.reduce((sum, p) => sum + p.paidAmount, 0);
     const pendingBalance = projects.reduce((sum, p) => sum + p.remainingBalance, 0);
-    return { totalPipelineValue, realizedCash, pendingBalance };
-  }, [leads, projects]);
+    return { realizedCash, pendingBalance };
+  }, [projects]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
@@ -164,14 +143,17 @@ export const AnalyticsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Financial Overview Cards */}
+      {/* Overview Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 shadow-lg backdrop-blur">
-          <span className="text-xs font-semibold text-zinc-400">Total Pipeline Deal Value</span>
-          <div className="text-2xl font-mono font-bold text-zinc-100 mt-1">
-            ${financials.totalPipelineValue.toLocaleString()}
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-zinc-400">Total Active Leads</span>
+            <Users className="h-4 w-4 text-sky-400" />
           </div>
-          <p className="text-[11px] text-zinc-500 mt-0.5">Estimated revenue potential</p>
+          <div className="text-2xl font-mono font-bold text-zinc-100 mt-1">
+            {leads.length}
+          </div>
+          <p className="text-[11px] text-zinc-500 mt-0.5">All registered prospects</p>
         </div>
 
         <div className="rounded-2xl border border-emerald-500/20 bg-emerald-950/20 p-4 shadow-lg backdrop-blur">
@@ -283,8 +265,8 @@ export const AnalyticsView: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Niche, Country & Lead Source Attribution */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      {/* 3. Niche & Country Geographic Attribution */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Niche Breakdown */}
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 shadow-xl space-y-4">
           <div className="flex items-center justify-between">
@@ -303,10 +285,7 @@ export const AnalyticsView: React.FC = () => {
               >
                 <span className="font-semibold text-zinc-100">{n.niche}</span>
                 <div className="flex items-center gap-3 font-mono">
-                  <span className="text-zinc-400">{n.count} leads</span>
-                  <span className="text-emerald-400 font-bold">
-                    ${n.totalValue.toLocaleString()}
-                  </span>
+                  <span className="text-emerald-400 font-bold">{n.count} leads</span>
                 </div>
               </div>
             ))}
@@ -335,53 +314,10 @@ export const AnalyticsView: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-3 font-mono">
-                  <span className="text-zinc-400">{c.count} leads</span>
-                  <span className="text-emerald-400 font-bold">
-                    ${c.totalValue.toLocaleString()}
-                  </span>
+                  <span className="text-cyan-400 font-bold">{c.count} leads</span>
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-
-        {/* Lead Source Attribution */}
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5 shadow-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-zinc-100 uppercase tracking-wider flex items-center gap-2">
-              <PieIcon className="h-4 w-4 text-teal-400" />
-              Lead Acquisition Channels
-            </h3>
-          </div>
-
-          <div className="h-64 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={sourceData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  innerRadius={45}
-                  dataKey="value"
-                  label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  labelLine={false}
-                >
-                  {sourceData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#18181B',
-                    borderColor: '#27272A',
-                    borderRadius: '12px',
-                    color: '#F4F4F5',
-                    fontSize: '12px',
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
           </div>
         </div>
       </div>

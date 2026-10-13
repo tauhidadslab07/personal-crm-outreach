@@ -52,6 +52,7 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   const setSelectedNicheFilter = useCRMStore((s) => s.setSelectedNicheFilter);
   const searchQuery = useCRMStore((s) => s.searchQuery);
   const sendAndAutoAdvance = useCRMStore((s) => s.sendAndAutoAdvance);
+  const markSentAndAdvance = useCRMStore((s) => s.markSentAndAdvance);
   const setKillSwitch = useCRMStore((s) => s.setKillSwitch);
   const setResponseStatus = useCRMStore((s) => s.setResponseStatus);
   const setLeadNote = useCRMStore((s) => s.setLeadNote);
@@ -311,7 +312,7 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                       : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
                   }`}
                 >
-                  <span>{stgNum === 0 ? 'Fresh' : stgNum === 5 ? 'FU 5 (Breakup)' : `FU ${stgNum}`}</span>
+                  <span>{stgNum === 0 ? 'Initial Outreach' : stgNum === 5 ? 'Follow-up 5 (Breakup)' : `Follow-up ${stgNum}`}</span>
                   {count > 0 && (
                     <span
                       className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
@@ -398,13 +399,10 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                       />
                       <div className="flex items-center gap-1.5">
                         {lead.niche && (
-                          <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[11px] font-semibold text-emerald-400">
+                          <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-400">
                             {lead.niche}
                           </span>
                         )}
-                        <span className="rounded-md bg-zinc-800/60 px-2 py-0.5 text-[11px] text-zinc-400">
-                          Source: {lead.source}
-                        </span>
                       </div>
                     </div>
 
@@ -568,14 +566,33 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                       </select>
                     </div>
 
-                    {/* Primary Unified "Send & Auto-Advance" Button */}
-                    <button
-                      onClick={() => handleSendAndAdvance(stage)}
-                      className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-950/60 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-900/80 transition-all active:scale-95 cursor-pointer"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                      <span>Send on WhatsApp & Complete Stage</span>
-                    </button>
+                    {/* Actions: Send on WhatsApp & Auto-Advance */}
+                    <div className="flex items-center gap-2 flex-1 sm:flex-initial justify-end">
+                      {/* Quick "Mark Sent & Advance" button */}
+                      <button
+                        type="button"
+                        onClick={() => markSentAndAdvance(stage.id)}
+                        title={`Mark as sent and move lead to ${stage.stageNumber < 5 ? `Follow-up ${stage.stageNumber + 1}` : 'Completed'}`}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/90 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 hover:text-white px-3 py-2.5 transition-all active:scale-95 cursor-pointer"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                        <span>Mark Sent</span>
+                      </button>
+
+                      {/* Primary WhatsApp Launch & Advance Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleSendAndAdvance(stage)}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-950/60 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-900/80 transition-all active:scale-95 cursor-pointer"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        <span>
+                          {stage.stageNumber < 5
+                            ? `Send WhatsApp → Follow-up ${stage.stageNumber + 1}`
+                            : 'Send WhatsApp & Complete'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

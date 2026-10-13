@@ -11,7 +11,6 @@ import {
   Users,
   Zap,
   Calendar,
-  DollarSign,
   ArrowRight,
   TrendingUp,
   Target,
@@ -293,11 +292,15 @@ export const NichesView: React.FC<NichesViewProps> = ({
                     </span>
                   </div>
 
-                  {/* Pipeline Value */}
+                  {/* Interested */}
                   <div className="text-center">
-                    <span className="text-[10px] font-medium text-zinc-500 block">Pipeline</span>
-                    <span className="text-sm font-black text-emerald-400">
-                      ${stats.totalValue.toLocaleString()}
+                    <span className="text-[10px] font-medium text-zinc-500 block">Interested</span>
+                    <span
+                      className={`text-sm font-black ${
+                        stats.interestedCount > 0 ? 'text-emerald-400' : 'text-zinc-400'
+                      }`}
+                    >
+                      {stats.interestedCount}
                     </span>
                   </div>
                 </div>

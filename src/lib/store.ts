@@ -51,7 +51,7 @@ interface CRMState {
     phoneRaw: string;
     company?: string;
     email?: string;
-    source: Lead['source'];
+    source?: Lead['source'];
     niche?: string;
     value?: number;
     tags?: string[];
@@ -74,6 +74,7 @@ interface CRMState {
 
   // Cadence Actions
   sendAndAutoAdvance: (stageId: string, customMessage?: string) => { whatsappUrl: string; nextStageCreated?: CadenceStage };
+  markSentAndAdvance: (stageId: string) => void;
   updateStage: (stageId: string, updates: Partial<CadenceStage>) => void;
 
   // Meeting Actions
@@ -330,8 +331,7 @@ export const useCRMStore = create<CRMState>()(
 
         if (currentStageNum < 5) {
           const nextStageNum = (currentStageNum + 1) as CadenceStageNumber;
-          const intervalDays = CADENCE_INTERVAL_DAYS[currentStageNum];
-          const nextScheduledDate = addDays(today, intervalDays);
+          const nextScheduledDate = today; // Immediately ready for the next follow-up queue
 
           const nextScript = getPrefilledMessageForStage(lead, nextStageNum, state.templates);
           nextStageCreated = {
@@ -377,6 +377,66 @@ export const useCRMStore = create<CRMState>()(
         }
 
         return { whatsappUrl, nextStageCreated };
+      },
+
+      markSentAndAdvance: (stageId) => {
+        const state = get();
+        const stage = state.stages.find((s) => s.id === stageId);
+        if (!stage) return;
+
+        const lead = state.leads.find((l) => l.id === stage.leadId);
+        if (!lead) return;
+
+        const now = new Date().toISOString();
+        const today = getTodayISO();
+        const currentStageNum = stage.stageNumber;
+
+        if (currentStageNum < 5) {
+          const nextStageNum = (currentStageNum + 1) as CadenceStageNumber;
+          const nextScheduledDate = today; // Immediately ready for the next follow-up queue
+          const nextScript = getPrefilledMessageForStage(lead, nextStageNum, state.templates);
+
+          const nextStageCreated: CadenceStage = {
+            id: `stg-${lead.id}-${nextStageNum}`,
+            leadId: lead.id,
+            stageNumber: nextStageNum,
+            title: STAGE_TITLES[nextStageNum],
+            scheduledDate: nextScheduledDate,
+            isSent: false,
+            viewStatus: 'unchecked',
+            templateScript: nextScript,
+          };
+
+          set((s) => ({
+            stages: [
+              ...s.stages.map((st) =>
+                st.id === stageId
+                  ? { ...st, isSent: true, sentDate: now }
+                  : st
+              ),
+              nextStageCreated,
+            ],
+            leads: s.leads.map((ld) =>
+              ld.id === lead.id
+                ? { ...ld, currentStage: nextStageNum, updatedAt: today }
+                : ld
+            ),
+          }));
+        } else {
+          // Stage 5 completed (Breakup)
+          set((s) => ({
+            stages: s.stages.map((st) =>
+              st.id === stageId
+                ? { ...st, isSent: true, sentDate: now }
+                : st
+            ),
+            leads: s.leads.map((ld) =>
+              ld.id === lead.id
+                ? { ...ld, killSwitchStatus: 'completed', updatedAt: today }
+                : ld
+            ),
+          }));
+        }
       },
 
       updateStage: (stageId, updates) => {

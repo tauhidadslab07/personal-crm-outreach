@@ -18,19 +18,18 @@ interface ParsedRow {
   name: string;
   phoneRaw: string;
   company?: string;
-  source: LeadSource;
   country: ReturnType<typeof parsePhoneAndDetectCountry>;
   isValid: boolean;
 }
 
-const SAMPLE_BULK_INPUT = `Tanvir Ahmed, +880 1712-345678, LinkedIn, Apex Tech
-Sarah Jenkins, +1 (415) 555-2671, Referral, CloudScale AI
-Oliver Smith, +44 20 7946 0958, Cold Inbound, FinEdge Capital
-Zayed Al-Mansoor, +971 50 123 4567, Conference, Gulf Oasis
-Maximilian Weber, +49 151 23456789, Twitter/X, Berlin SaaS Hub
-Elena Rostova, +1 (647) 555-0199, Website, NorthStar
-Marcus Tan, +65 9123 4567, LinkedIn, LionCity
-Liam O'Connor, +61 412 345 678, Upwork, Sydney Media`;
+const SAMPLE_BULK_INPUT = `Tanvir Ahmed, +880 1712-345678, Apex Tech
+Sarah Jenkins, +1 (415) 555-2671, CloudScale AI
+Oliver Smith, +44 20 7946 0958, FinEdge Capital
+Zayed Al-Mansoor, +971 50 123 4567, Gulf Oasis
+Maximilian Weber, +49 151 23456789, Berlin SaaS Hub
+Elena Rostova, +1 (647) 555-0199, NorthStar
+Marcus Tan, +65 9123 4567, LionCity
+Liam O'Connor, +61 412 345 678, Sydney Media`;
 
 export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClose }) => {
   const addBulkLeads = useCRMStore((s) => s.addBulkLeads);
@@ -52,7 +51,6 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
       const parts = line.split(/[,;\t]+/).map((p) => p.trim());
       let name = '';
       let phoneRaw = '';
-      let source: LeadSource = 'LinkedIn';
       let company = '';
 
       if (parts.length >= 2) {
@@ -64,14 +62,12 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
           // Phone, Name format
           phoneRaw = parts[0];
           name = parts[1];
-          source = (parts[2] as LeadSource) || 'LinkedIn';
-          company = parts[3] || '';
+          company = parts[2] || '';
         } else {
           // Name, Phone format
           name = parts[0];
           phoneRaw = parts[1];
-          source = (parts[2] as LeadSource) || 'LinkedIn';
-          company = parts[3] || '';
+          company = parts[2] || '';
         }
       } else if (parts.length === 1) {
         // Just phone or name
@@ -92,7 +88,6 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
         name: name || 'Unnamed Lead',
         phoneRaw,
         company,
-        source,
         country,
         isValid,
       };
@@ -110,7 +105,6 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
         name: r.name,
         phoneRaw: r.phoneRaw,
         company: r.company || undefined,
-        source: r.source,
         niche: batchNiche,
       })),
       batchNiche
@@ -129,7 +123,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
       isOpen={isOpen}
       onClose={onClose}
       title="Rapid Bulk Lead Importer"
-      subtitle="Paste 10-20 leads at once (formats: Name, Phone, Source, Company or Phone, Name)"
+      subtitle="Paste 10-20 leads at once (format: Name, Phone, Company or Phone, Name)"
       maxWidth="xl"
     >
       <div className="space-y-4">

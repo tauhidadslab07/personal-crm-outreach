@@ -32,9 +32,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
-  const [source, setSource] = useState<LeadSource>('LinkedIn');
   const [niche, setNiche] = useState(initialNiche || (niches[0]?.name || 'General'));
-  const [value, setValue] = useState('');
   const [tagsInput, setTagsInput] = useState('');
 
   // Sync initialNiche when opened
@@ -60,9 +58,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
       phoneRaw: phoneNumber.trim(),
       company: company.trim() || undefined,
       email: email.trim() || undefined,
-      source,
       niche,
-      value: value ? parseFloat(value) : 0,
       tags,
     });
 
@@ -71,7 +67,6 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
     setPhoneNumber('');
     setCompany('');
     setEmail('');
-    setValue('');
     setTagsInput('');
     onClose();
   };
@@ -188,55 +183,23 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
           </div>
         </div>
 
-        {/* Niche & Source & Deal Value */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">
-              Niche / Industry *
-            </label>
-            <select
-              value={niche}
-              onChange={(e) => setNiche(e.target.value)}
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all font-medium"
-            >
-              {niches.map((n) => (
-                <option key={n.id} value={n.name}>
-                  {n.name}
-                </option>
-              ))}
-              <option value="General">General / Other</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">
-              Lead Source
-            </label>
-            <select
-              value={source}
-              onChange={(e) => setSource(e.target.value as LeadSource)}
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-3 py-2 text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
-            >
-              {SOURCES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">
-              Deal Value ($ USD)
-            </label>
-            <input
-              type="number"
-              placeholder="e.g. 5000"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
-            />
-          </div>
+        {/* Niche / Industry */}
+        <div>
+          <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">
+            Target Industry Niche *
+          </label>
+          <select
+            value={niche}
+            onChange={(e) => setNiche(e.target.value)}
+            className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-3.5 py-2.5 text-xs text-zinc-100 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all font-medium"
+          >
+            {niches.map((n) => (
+              <option key={n.id} value={n.name}>
+                {n.name}
+              </option>
+            ))}
+            <option value="General">General / Other</option>
+          </select>
         </div>
 
         {/* Tags */}

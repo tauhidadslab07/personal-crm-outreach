@@ -212,7 +212,6 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                 <th className="px-4 py-3">WhatsApp Click-to-Chat</th>
                 <th className="px-4 py-3">Cadence Stage</th>
                 <th className="px-4 py-3">Pipeline Status</th>
-                <th className="px-4 py-3">Source & Value</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
@@ -266,15 +265,6 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                     >
                       {lead.killSwitchStatus.replace('_', ' ')}
                     </span>
-                  </td>
-
-                  <td className="px-4 py-3.5">
-                    <div className="text-zinc-300 font-medium">{lead.source}</div>
-                    {lead.value ? (
-                      <div className="text-emerald-400 font-mono font-bold text-xs mt-0.5">
-                        ${lead.value.toLocaleString()}
-                      </div>
-                    ) : null}
                   </td>
 
                   <td className="px-4 py-3.5 text-right">
