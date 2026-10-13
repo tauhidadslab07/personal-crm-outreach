@@ -17,6 +17,7 @@ import {
   Sparkles,
   ExternalLink,
   Download,
+  CheckCircle2,
 } from 'lucide-react';
 import { exportLeadsToCSV } from '@/lib/csv-export';
 
@@ -31,6 +32,7 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
 }) => {
   const leads = useCRMStore((s) => s.leads);
   const deleteLead = useCRMStore((s) => s.deleteLead);
+  const advanceLeadStage = useCRMStore((s) => s.advanceLeadStage);
   const setKillSwitch = useCRMStore((s) => s.setKillSwitch);
   const searchQuery = useCRMStore((s) => s.searchQuery);
   const niches = useCRMStore((s) => s.niches);
@@ -41,6 +43,16 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   const [filterStage, setFilterStage] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterCountry, setFilterCountry] = useState<string>('all');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const handleMessageSent = (lead: Lead) => {
+    advanceLeadStage(lead.id);
+    const nextLabel = lead.currentStage < 5 ? `Follow-up ${lead.currentStage + 1}` : 'Completed';
+    setToastMessage(`✓ Message Sent! "${lead.name}" automatically moved to ${nextLabel}.`);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+  };
 
   // Extract unique countries
   const countries = useMemo(() => {
@@ -88,6 +100,14 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      {/* Floating Real-time Success Toast */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-50 flex items-center gap-2.5 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-2xl shadow-emerald-950/80 border border-emerald-400/40 animate-in fade-in slide-in-from-top-4">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-white" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Header & Controls */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
         <div>
@@ -246,9 +266,22 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                   </td>
 
                   <td className="px-4 py-3.5">
-                    <span className="rounded-lg bg-zinc-800 px-2.5 py-1 text-xs font-semibold text-zinc-200 border border-zinc-700/60">
-                      {STAGE_TITLES[lead.currentStage]}
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="rounded-lg bg-zinc-800 px-2.5 py-1 text-xs font-semibold text-zinc-200 border border-zinc-700/60 whitespace-nowrap">
+                        {STAGE_TITLES[lead.currentStage]}
+                      </span>
+                      {lead.killSwitchStatus === 'active' && lead.currentStage < 5 && (
+                        <button
+                          type="button"
+                          onClick={() => handleMessageSent(lead)}
+                          title={`Click to mark message as sent and automatically advance lead to Follow-up ${lead.currentStage + 1}`}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 text-xs font-bold transition-all active:scale-95 shadow-md shadow-emerald-950/40 whitespace-nowrap cursor-pointer"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                          <span>Message Sent → FU {lead.currentStage + 1}</span>
+                        </button>
+                      )}
+                    </div>
                   </td>
 
                   <td className="px-4 py-3.5">
@@ -338,6 +371,18 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                         isoCode={lead.isoCode}
                         className="text-[10px] py-0.5 px-1.5"
                       />
+
+                      {lead.killSwitchStatus === 'active' && lead.currentStage < 5 && (
+                        <button
+                          type="button"
+                          onClick={() => handleMessageSent(lead)}
+                          title={`Click to mark message as sent and automatically advance lead to Follow-up ${lead.currentStage + 1}`}
+                          className="w-full mt-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold py-1.5 px-2 transition-all active:scale-95 shadow-md shadow-emerald-950/40 cursor-pointer"
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                          <span>Message Sent → FU {lead.currentStage + 1}</span>
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>

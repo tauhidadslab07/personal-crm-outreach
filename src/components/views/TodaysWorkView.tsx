@@ -138,10 +138,29 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   // Today's project deadlines
   const todayProjectDeadlines = projects.filter((p) => p.deliveryDeadline === today);
 
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Handle "Direct Message Sent" (moves lead to next follow-up stage without opening WhatsApp popup)
+  const handleDirectMessageSent = (stage: CadenceStage, leadName: string) => {
+    markSentAndAdvance(stage.id);
+    const nextLabel =
+      stage.stageNumber < 5 ? `Follow-up ${stage.stageNumber + 1}` : 'Completed';
+    setToastMessage(`✓ Message Sent! "${leadName}" automatically moved to ${nextLabel}.`);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+  };
+
   // Handle "Send on WhatsApp & Complete Stage"
-  const handleSendAndAdvance = (stage: CadenceStage) => {
+  const handleSendAndAdvance = (stage: CadenceStage, leadName: string) => {
     const customText = editedScripts[stage.id];
     const { whatsappUrl } = sendAndAutoAdvance(stage.id, customText);
+    const nextLabel =
+      stage.stageNumber < 5 ? `Follow-up ${stage.stageNumber + 1}` : 'Completed';
+    setToastMessage(`✓ Message Sent on WhatsApp! "${leadName}" moved to ${nextLabel}.`);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
     // Launch universal WhatsApp link in new window/tab
     window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
   };
@@ -163,6 +182,14 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
         total={totalTodayGoal}
         overdueCount={overdueStages.length}
       />
+
+      {/* Floating Real-time Success Toast */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-50 flex items-center gap-2.5 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-2xl shadow-emerald-950/80 border border-emerald-400/40 animate-in fade-in slide-in-from-top-4">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-white" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
 
       {/* 2. Today's Meetings Quick Strip */}
       {todayMeetings.length > 0 && (
@@ -566,30 +593,33 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                       </select>
                     </div>
 
-                    {/* Actions: Send on WhatsApp & Auto-Advance */}
+                    {/* Actions: Message Sent & WhatsApp Launch */}
                     <div className="flex items-center gap-2 flex-1 sm:flex-initial justify-end">
-                      {/* Quick "Mark Sent & Advance" button */}
+                      {/* Secondary WhatsApp Launch Button */}
                       <button
                         type="button"
-                        onClick={() => markSentAndAdvance(stage.id)}
-                        title={`Mark as sent and move lead to ${stage.stageNumber < 5 ? `Follow-up ${stage.stageNumber + 1}` : 'Completed'}`}
+                        onClick={() => handleSendAndAdvance(stage, lead.name)}
+                        title="Open WhatsApp chat with prefilled template"
                         className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/90 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 hover:text-white px-3 py-2.5 transition-all active:scale-95 cursor-pointer"
                       >
-                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                        <span>Mark Sent</span>
+                        <Send className="h-3.5 w-3.5 text-emerald-400" />
+                        <span>Open WhatsApp</span>
                       </button>
 
-                      {/* Primary WhatsApp Launch & Advance Button */}
+                      {/* Primary "Message Sent" Auto-Advance Button */}
                       <button
                         type="button"
-                        onClick={() => handleSendAndAdvance(stage)}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-950/60 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-900/80 transition-all active:scale-95 cursor-pointer"
+                        onClick={() => handleDirectMessageSent(stage, lead.name)}
+                        title={`Click to mark message as sent and automatically advance lead to ${
+                          stage.stageNumber < 5 ? `Follow-up ${stage.stageNumber + 1}` : 'Completed'
+                        }`}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-950/60 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-900/80 transition-all active:scale-95 cursor-pointer ring-1 ring-emerald-400/30"
                       >
-                        <Send className="h-3.5 w-3.5" />
+                        <CheckCircle2 className="h-4 w-4 text-emerald-100" />
                         <span>
                           {stage.stageNumber < 5
-                            ? `Send WhatsApp → Follow-up ${stage.stageNumber + 1}`
-                            : 'Send WhatsApp & Complete'}
+                            ? `Message Sent → Move to Follow-up ${stage.stageNumber + 1}`
+                            : 'Message Sent & Complete'}
                         </span>
                       </button>
                     </div>

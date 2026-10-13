@@ -75,6 +75,7 @@ interface CRMState {
   // Cadence Actions
   sendAndAutoAdvance: (stageId: string, customMessage?: string) => { whatsappUrl: string; nextStageCreated?: CadenceStage };
   markSentAndAdvance: (stageId: string) => void;
+  advanceLeadStage: (leadId: string) => void;
   updateStage: (stageId: string, updates: Partial<CadenceStage>) => void;
 
   // Meeting Actions
@@ -332,28 +333,53 @@ export const useCRMStore = create<CRMState>()(
         if (currentStageNum < 5) {
           const nextStageNum = (currentStageNum + 1) as CadenceStageNumber;
           const nextScheduledDate = today; // Immediately ready for the next follow-up queue
-
           const nextScript = getPrefilledMessageForStage(lead, nextStageNum, state.templates);
-          nextStageCreated = {
-            id: `stg-${lead.id}-${nextStageNum}`,
-            leadId: lead.id,
-            stageNumber: nextStageNum,
-            title: STAGE_TITLES[nextStageNum],
-            scheduledDate: nextScheduledDate,
-            isSent: false,
-            viewStatus: 'unchecked',
-            templateScript: nextScript,
-          };
 
-          set((s) => ({
-            stages: [
-              ...s.stages.map((st) =>
+          const existingNextStage = state.stages.find(
+            (st) => st.leadId === lead.id && st.stageNumber === nextStageNum
+          );
+
+          let updatedStages: CadenceStage[];
+
+          if (existingNextStage) {
+            nextStageCreated = {
+              ...existingNextStage,
+              scheduledDate: nextScheduledDate,
+              isSent: false,
+              templateScript: nextScript,
+            };
+            updatedStages = state.stages.map((st) => {
+              if (st.id === stageId) {
+                return { ...st, isSent: true, sentDate: now, templateScript: messageToSend };
+              }
+              if (st.id === existingNextStage.id) {
+                return nextStageCreated!;
+              }
+              return st;
+            });
+          } else {
+            nextStageCreated = {
+              id: `stg-${lead.id}-${nextStageNum}`,
+              leadId: lead.id,
+              stageNumber: nextStageNum,
+              title: STAGE_TITLES[nextStageNum],
+              scheduledDate: nextScheduledDate,
+              isSent: false,
+              viewStatus: 'unchecked',
+              templateScript: nextScript,
+            };
+            updatedStages = [
+              ...state.stages.map((st) =>
                 st.id === stageId
                   ? { ...st, isSent: true, sentDate: now, templateScript: messageToSend }
                   : st
               ),
-              nextStageCreated!,
-            ],
+              nextStageCreated,
+            ];
+          }
+
+          set((s) => ({
+            stages: updatedStages,
             leads: s.leads.map((ld) =>
               ld.id === lead.id
                 ? { ...ld, currentStage: nextStageNum, updatedAt: today }
@@ -396,26 +422,52 @@ export const useCRMStore = create<CRMState>()(
           const nextScheduledDate = today; // Immediately ready for the next follow-up queue
           const nextScript = getPrefilledMessageForStage(lead, nextStageNum, state.templates);
 
-          const nextStageCreated: CadenceStage = {
-            id: `stg-${lead.id}-${nextStageNum}`,
-            leadId: lead.id,
-            stageNumber: nextStageNum,
-            title: STAGE_TITLES[nextStageNum],
-            scheduledDate: nextScheduledDate,
-            isSent: false,
-            viewStatus: 'unchecked',
-            templateScript: nextScript,
-          };
+          const existingNextStage = state.stages.find(
+            (st) => st.leadId === lead.id && st.stageNumber === nextStageNum
+          );
 
-          set((s) => ({
-            stages: [
-              ...s.stages.map((st) =>
+          let nextStageCreated: CadenceStage;
+          let updatedStages: CadenceStage[];
+
+          if (existingNextStage) {
+            nextStageCreated = {
+              ...existingNextStage,
+              scheduledDate: nextScheduledDate,
+              isSent: false,
+              templateScript: nextScript,
+            };
+            updatedStages = state.stages.map((st) => {
+              if (st.id === stageId) {
+                return { ...st, isSent: true, sentDate: now };
+              }
+              if (st.id === existingNextStage.id) {
+                return nextStageCreated;
+              }
+              return st;
+            });
+          } else {
+            nextStageCreated = {
+              id: `stg-${lead.id}-${nextStageNum}`,
+              leadId: lead.id,
+              stageNumber: nextStageNum,
+              title: STAGE_TITLES[nextStageNum],
+              scheduledDate: nextScheduledDate,
+              isSent: false,
+              viewStatus: 'unchecked',
+              templateScript: nextScript,
+            };
+            updatedStages = [
+              ...state.stages.map((st) =>
                 st.id === stageId
                   ? { ...st, isSent: true, sentDate: now }
                   : st
               ),
               nextStageCreated,
-            ],
+            ];
+          }
+
+          set((s) => ({
+            stages: updatedStages,
             leads: s.leads.map((ld) =>
               ld.id === lead.id
                 ? { ...ld, currentStage: nextStageNum, updatedAt: today }
@@ -436,6 +488,49 @@ export const useCRMStore = create<CRMState>()(
                 : ld
             ),
           }));
+        }
+      },
+
+      advanceLeadStage: (leadId) => {
+        const state = get();
+        const lead = state.leads.find((l) => l.id === leadId);
+        if (!lead) return;
+
+        // Find active unsent stage for this lead's current stage
+        const currentStage =
+          state.stages.find(
+            (s) => s.leadId === leadId && s.stageNumber === lead.currentStage && !s.isSent
+          ) || state.stages.find((s) => s.leadId === leadId && !s.isSent);
+
+        if (currentStage) {
+          state.markSentAndAdvance(currentStage.id);
+        } else {
+          // If no unsent stage found, advance lead and create next stage
+          const today = getTodayISO();
+          const currentStageNum = lead.currentStage;
+          if (currentStageNum < 5) {
+            const nextStageNum = (currentStageNum + 1) as CadenceStageNumber;
+            const nextScript = getPrefilledMessageForStage(lead, nextStageNum, state.templates);
+            const nextStageCreated: CadenceStage = {
+              id: `stg-${lead.id}-${nextStageNum}`,
+              leadId: lead.id,
+              stageNumber: nextStageNum,
+              title: STAGE_TITLES[nextStageNum],
+              scheduledDate: today,
+              isSent: false,
+              viewStatus: 'unchecked',
+              templateScript: nextScript,
+            };
+
+            set((s) => ({
+              stages: [...s.stages, nextStageCreated],
+              leads: s.leads.map((ld) =>
+                ld.id === lead.id
+                  ? { ...ld, currentStage: nextStageNum, updatedAt: today }
+                  : ld
+              ),
+            }));
+          }
         }
       },
 
