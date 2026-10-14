@@ -240,9 +240,13 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
             </thead>
             <tbody className="divide-y divide-zinc-800/60">
               {filteredLeads.map((lead) => {
-                const currentStage = stages.find(
-                  (s) => s.leadId === lead.id && s.stageNumber === lead.currentStage
-                );
+                const prevStageNum = lead.currentStage > 0 ? (lead.currentStage - 1) : 0;
+                const targetStage =
+                  lead.currentStage > 0
+                    ? stages.find((s) => s.leadId === lead.id && s.stageNumber === prevStageNum) ||
+                      stages.find((s) => s.leadId === lead.id && s.stageNumber === lead.currentStage)
+                    : stages.find((s) => s.leadId === lead.id && s.stageNumber === 0);
+
                 return (
                   <tr key={lead.id} className="hover:bg-zinc-800/40 transition-colors">
                     <td className="px-4 py-3.5">
@@ -292,27 +296,40 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                     </td>
 
                     <td className="px-4 py-3.5">
-                      {currentStage ? (
-                        <select
-                          value={currentStage.viewStatus || 'unseen'}
-                          onChange={(e) =>
-                            setStageViewStatus(currentStage.id, e.target.value as StageViewStatus)
-                          }
-                          className={`rounded-lg px-2.5 py-1 text-xs font-bold border transition-all cursor-pointer ${
-                            currentStage.viewStatus === 'replied'
-                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                              : currentStage.viewStatus === 'seen'
-                              ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
-                              : currentStage.viewStatus === 'rejected'
-                              ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-                              : 'bg-zinc-800 text-zinc-300 border-zinc-700'
-                          }`}
-                        >
-                          <option value="unseen">⏳ Unseen</option>
-                          <option value="seen">👁️ Seen</option>
-                          <option value="replied">💬 Replied</option>
-                          <option value="rejected">❌ Rejected</option>
-                        </select>
+                      {targetStage ? (
+                        <div className="flex flex-col gap-1">
+                          <select
+                            value={targetStage.viewStatus || 'unseen'}
+                            onChange={(e) => {
+                              const newStatus = e.target.value as StageViewStatus;
+                              setStageViewStatus(targetStage.id, newStatus);
+                              const stageLabel = STAGE_TITLES[targetStage.stageNumber];
+                              setToastMessage(
+                                `✓ "${lead.name}"'s ${stageLabel} marked as "${newStatus.toUpperCase()}".`
+                              );
+                              setTimeout(() => setToastMessage(null), 3500);
+                            }}
+                            className={`rounded-lg px-2.5 py-1 text-xs font-bold border transition-all cursor-pointer ${
+                              targetStage.viewStatus === 'replied'
+                                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                : targetStage.viewStatus === 'seen'
+                                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                                : targetStage.viewStatus === 'rejected'
+                                ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                                : 'bg-zinc-800 text-zinc-300 border-zinc-700'
+                            }`}
+                          >
+                            <option value="unseen">⏳ Unseen</option>
+                            <option value="seen">👁️ Seen</option>
+                            <option value="replied">💬 Replied</option>
+                            <option value="rejected">❌ Rejected</option>
+                          </select>
+                          <span className="text-[10px] text-zinc-400 font-medium whitespace-nowrap">
+                            {lead.currentStage > 0
+                              ? `Last Msg (${STAGE_TITLES[targetStage.stageNumber]})`
+                              : 'Initial Outreach'}
+                          </span>
+                        </div>
                       ) : (
                         <span className="text-zinc-600 text-xs">-</span>
                       )}
@@ -379,9 +396,17 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
 
                 <div className="space-y-2 flex-1 overflow-y-auto max-h-[600px]">
                   {stageLeads.map((lead) => {
-                    const currentStage = stages.find(
-                      (s) => s.leadId === lead.id && s.stageNumber === lead.currentStage
-                    );
+                    const prevStageNum = lead.currentStage > 0 ? (lead.currentStage - 1) : 0;
+                    const targetStage =
+                      lead.currentStage > 0
+                        ? stages.find(
+                            (s) => s.leadId === lead.id && s.stageNumber === prevStageNum
+                          ) ||
+                          stages.find(
+                            (s) => s.leadId === lead.id && s.stageNumber === lead.currentStage
+                          )
+                        : stages.find((s) => s.leadId === lead.id && s.stageNumber === 0);
+
                     return (
                       <div
                         key={lead.id}
@@ -411,32 +436,41 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                           className="text-[10px] py-0.5 px-1.5"
                         />
 
-                        {currentStage && (
-                          <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-zinc-800/60">
-                            <span className="text-[10px] text-zinc-400 font-semibold">Status:</span>
-                            <select
-                              value={currentStage.viewStatus || 'unseen'}
-                              onChange={(e) =>
-                                setStageViewStatus(
-                                  currentStage.id,
-                                  e.target.value as StageViewStatus
-                                )
-                              }
-                              className={`rounded-lg px-2 py-0.5 text-[10px] font-bold border transition-all cursor-pointer ${
-                                currentStage.viewStatus === 'replied'
-                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                                  : currentStage.viewStatus === 'seen'
-                                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
-                                  : currentStage.viewStatus === 'rejected'
-                                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-                                  : 'bg-zinc-800 text-zinc-300 border-zinc-700'
-                              }`}
-                            >
-                              <option value="unseen">⏳ Unseen</option>
-                              <option value="seen">👁️ Seen</option>
-                              <option value="replied">💬 Replied</option>
-                              <option value="rejected">❌ Rejected</option>
-                            </select>
+                        {targetStage && (
+                          <div className="pt-1.5 border-t border-zinc-800/60 space-y-1">
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-[10px] text-zinc-400 font-semibold truncate">
+                                {lead.currentStage > 0
+                                  ? `Last (${STAGE_TITLES[targetStage.stageNumber]}):`
+                                  : 'Status:'}
+                              </span>
+                              <select
+                                value={targetStage.viewStatus || 'unseen'}
+                                onChange={(e) => {
+                                  const newStatus = e.target.value as StageViewStatus;
+                                  setStageViewStatus(targetStage.id, newStatus);
+                                  const stageLabel = STAGE_TITLES[targetStage.stageNumber];
+                                  setToastMessage(
+                                    `✓ "${lead.name}"'s ${stageLabel} marked as "${newStatus.toUpperCase()}".`
+                                  );
+                                  setTimeout(() => setToastMessage(null), 3500);
+                                }}
+                                className={`rounded-lg px-2 py-0.5 text-[10px] font-bold border transition-all cursor-pointer ${
+                                  targetStage.viewStatus === 'replied'
+                                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                    : targetStage.viewStatus === 'seen'
+                                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                                    : targetStage.viewStatus === 'rejected'
+                                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                                    : 'bg-zinc-800 text-zinc-300 border-zinc-700'
+                                }`}
+                              >
+                                <option value="unseen">⏳ Unseen</option>
+                                <option value="seen">👁️ Seen</option>
+                                <option value="replied">💬 Replied</option>
+                                <option value="rejected">❌ Rejected</option>
+                              </select>
+                            </div>
                           </div>
                         )}
 

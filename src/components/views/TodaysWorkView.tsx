@@ -401,68 +401,112 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                     </div>
 
                     {/* Message Engagement Status Switcher */}
-                    <div className="flex items-center justify-between flex-wrap gap-2 pt-2.5 border-t border-zinc-800/80">
-                      <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
-                        Message Status:
-                      </span>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {/* Unseen / Sent */}
-                        <button
-                          type="button"
-                          onClick={() => setStageViewStatus(stage.id, 'unseen')}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
-                            stage.viewStatus === 'unseen' || stage.viewStatus === 'unchecked'
-                              ? 'bg-zinc-800 border-zinc-600 text-zinc-200 ring-1 ring-zinc-500/30'
-                              : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-500 hover:text-zinc-300'
-                          }`}
-                          title="Message sent but not opened / unseen"
-                        >
-                          ⏳ Unseen
-                        </button>
+                    {(() => {
+                      const prevStageNum = stage.stageNumber > 0 ? stage.stageNumber - 1 : 0;
+                      const targetStage =
+                        stage.stageNumber > 0
+                          ? stages.find(
+                              (s) => s.leadId === stage.leadId && s.stageNumber === prevStageNum
+                            ) || stage
+                          : stage;
 
-                        {/* Seen */}
-                        <button
-                          type="button"
-                          onClick={() => setStageViewStatus(stage.id, 'seen')}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
-                            stage.viewStatus === 'seen'
-                              ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 ring-1 ring-cyan-500/40'
-                              : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-500 hover:text-cyan-300'
-                          }`}
-                          title="Message read / double blue tick"
-                        >
-                          👁️ Seen
-                        </button>
+                      return (
+                        <div className="flex items-center justify-between flex-wrap gap-2 pt-2.5 border-t border-zinc-800/80">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
+                              {stage.stageNumber > 0 ? 'Last Message Outcome:' : 'Message Status:'}
+                            </span>
+                            {stage.stageNumber > 0 && (
+                              <span className="text-[10px] text-zinc-500 font-medium">
+                                Updates: {STAGE_TITLES[targetStage.stageNumber]}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {/* Unseen / Sent */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStageViewStatus(targetStage.id, 'unseen');
+                                setToastMessage(
+                                  `✓ ${lead.name}'s ${STAGE_TITLES[targetStage.stageNumber]} marked as UNSEEN.`
+                                );
+                                setTimeout(() => setToastMessage(null), 3000);
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                                targetStage.viewStatus === 'unseen' ||
+                                targetStage.viewStatus === 'unchecked'
+                                  ? 'bg-zinc-800 border-zinc-600 text-zinc-200 ring-1 ring-zinc-500/30'
+                                  : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-500 hover:text-zinc-300'
+                              }`}
+                              title="Message sent but not opened / unseen"
+                            >
+                              ⏳ Unseen
+                            </button>
 
-                        {/* Replied / Knock */}
-                        <button
-                          type="button"
-                          onClick={() => setStageViewStatus(stage.id, 'replied')}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
-                            stage.viewStatus === 'replied'
-                              ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 ring-1 ring-emerald-500/40'
-                              : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-500 hover:text-emerald-300'
-                          }`}
-                          title="Client responded / knocked back"
-                        >
-                          💬 Replied
-                        </button>
+                            {/* Seen */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStageViewStatus(targetStage.id, 'seen');
+                                setToastMessage(
+                                  `✓ ${lead.name}'s ${STAGE_TITLES[targetStage.stageNumber]} marked as SEEN.`
+                                );
+                                setTimeout(() => setToastMessage(null), 3000);
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                                targetStage.viewStatus === 'seen'
+                                  ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 ring-1 ring-cyan-500/40'
+                                  : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-500 hover:text-cyan-300'
+                              }`}
+                              title="Message read / double blue tick"
+                            >
+                              👁️ Seen
+                            </button>
 
-                        {/* Rejected */}
-                        <button
-                          type="button"
-                          onClick={() => setStageViewStatus(stage.id, 'rejected')}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
-                            stage.viewStatus === 'rejected'
-                              ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 ring-1 ring-rose-500/40'
-                              : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-500 hover:text-rose-300'
-                          }`}
-                          title="Client declined / rejected"
-                        >
-                          ❌ Rejected
-                        </button>
-                      </div>
-                    </div>
+                            {/* Replied / Knock */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStageViewStatus(targetStage.id, 'replied');
+                                setToastMessage(
+                                  `✓ ${lead.name}'s ${STAGE_TITLES[targetStage.stageNumber]} marked as REPLIED.`
+                                );
+                                setTimeout(() => setToastMessage(null), 3000);
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                                targetStage.viewStatus === 'replied'
+                                  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 ring-1 ring-emerald-500/40'
+                                  : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-500 hover:text-emerald-300'
+                              }`}
+                              title="Client responded / knocked back"
+                            >
+                              💬 Replied
+                            </button>
+
+                            {/* Rejected */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setStageViewStatus(targetStage.id, 'rejected');
+                                setToastMessage(
+                                  `✓ ${lead.name}'s ${STAGE_TITLES[targetStage.stageNumber]} marked as REJECTED.`
+                                );
+                                setTimeout(() => setToastMessage(null), 3000);
+                              }}
+                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                                targetStage.viewStatus === 'rejected'
+                                  ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 ring-1 ring-rose-500/40'
+                                  : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-500 hover:text-rose-300'
+                              }`}
+                              title="Client declined / rejected"
+                            >
+                              ❌ Rejected
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Bottom Actions: Send & Auto-Advance + Kill-Switch dropdown */}
