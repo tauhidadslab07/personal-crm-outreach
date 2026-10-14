@@ -1,5 +1,36 @@
-import { parsePhoneNumberFromString, CountryCode } from 'libphonenumber-js';
+import {
+  parsePhoneNumberFromString,
+  CountryCode,
+  getCountries,
+  getCountryCallingCode,
+} from 'libphonenumber-js';
 import { CountryInfo } from '@/types/crm';
+
+export interface CountryOption {
+  iso: CountryCode;
+  name: string;
+  code: string;
+  flag: string;
+}
+
+const POPULAR_COUNTRIES: CountryCode[] = [
+  'BD',
+  'US',
+  'GB',
+  'CA',
+  'AE',
+  'SA',
+  'IN',
+  'PK',
+  'AU',
+  'DE',
+  'MY',
+  'SG',
+  'FR',
+  'IT',
+  'ES',
+  'NL',
+];
 
 // Convert ISO 3166-1 alpha-2 code to Flag Emoji (e.g. "US" -> 🇺🇸)
 export function getFlagEmoji(isoCode: string): string {
@@ -12,9 +43,10 @@ export function getFlagEmoji(isoCode: string): string {
 }
 
 // Get localized full country name
-const regionNames = typeof Intl !== 'undefined' && Intl.DisplayNames
-  ? new Intl.DisplayNames(['en'], { type: 'region' })
-  : null;
+const regionNames =
+  typeof Intl !== 'undefined' && Intl.DisplayNames
+    ? new Intl.DisplayNames(['en'], { type: 'region' })
+    : null;
 
 export function getCountryName(isoCode: string): string {
   if (!isoCode) return 'Unknown Country';
@@ -23,6 +55,34 @@ export function getCountryName(isoCode: string): string {
   } catch {
     return isoCode;
   }
+}
+
+export function getAllCountries(): CountryOption[] {
+  const allIsos = getCountries();
+  const list: CountryOption[] = [];
+
+  for (const iso of allIsos) {
+    try {
+      const callingCode = getCountryCallingCode(iso);
+      list.push({
+        iso,
+        name: getCountryName(iso),
+        code: `+${callingCode}`,
+        flag: getFlagEmoji(iso),
+      });
+    } catch {
+      // skip if no calling code
+    }
+  }
+
+  return list.sort((a, b) => {
+    const aPop = POPULAR_COUNTRIES.indexOf(a.iso);
+    const bPop = POPULAR_COUNTRIES.indexOf(b.iso);
+    if (aPop !== -1 && bPop !== -1) return aPop - bPop;
+    if (aPop !== -1) return -1;
+    if (bPop !== -1) return 1;
+    return a.name.localeCompare(b.name);
+  });
 }
 
 /**

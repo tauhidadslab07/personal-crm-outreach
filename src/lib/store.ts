@@ -47,7 +47,7 @@ interface CRMState {
 
   // Lead Actions
   addLead: (leadInput: {
-    name: string;
+    name?: string;
     phoneRaw: string;
     company?: string;
     email?: string;
@@ -146,9 +146,15 @@ export const useCRMStore = create<CRMState>()(
         const today = getTodayISO();
         const id = `lead-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
 
+        const leadName =
+          leadInput.name?.trim() ||
+          (leadInput.company?.trim()
+            ? `${leadInput.company.trim()} Lead`
+            : `Lead ${sanitized ? sanitized.slice(-4) : 'Prospect'}`);
+
         const newLead: Lead = {
           id,
-          name: leadInput.name.trim(),
+          name: leadName,
           phoneRaw: leadInput.phoneRaw.trim(),
           phoneSanitized: sanitized,
           isoCode: country.isoCode || 'US',
