@@ -16,6 +16,7 @@ import {
   Target,
   Trash2,
   ExternalLink,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface NichesViewProps {
@@ -178,8 +179,26 @@ export const NichesView: React.FC<NichesViewProps> = ({
     setActiveTab('today');
   };
 
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const handleDeleteNiche = (niche: Niche) => {
+    deleteNiche(niche.id);
+    setToastMessage(`✓ Niche "${niche.name}" deleted and permanently saved.`);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3500);
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      {/* Floating Real-time Success Toast */}
+      {toastMessage && (
+        <div className="fixed top-5 right-5 z-50 flex items-center gap-2.5 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-2xl shadow-emerald-950/80 border border-emerald-400/40 animate-in fade-in slide-in-from-top-4">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-white" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
         <div>
@@ -339,9 +358,9 @@ export const NichesView: React.FC<NichesViewProps> = ({
                   </button>
 
                   <button
-                    onClick={() => deleteNiche(niche.id)}
-                    title="Remove niche"
-                    className="p-1 text-zinc-600 hover:text-rose-400 transition-colors"
+                    onClick={() => handleDeleteNiche(niche)}
+                    title={`Delete niche "${niche.name}"`}
+                    className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-950/30 transition-all cursor-pointer"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>

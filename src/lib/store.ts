@@ -137,8 +137,16 @@ export const useCRMStore = create<CRMState>()(
       },
 
       deleteNiche: (id) => {
+        const nicheToDelete = get().niches.find((n) => n.id === id);
+        const nicheName = nicheToDelete?.name;
+
         set((state) => ({
           niches: state.niches.filter((n) => n.id !== id),
+          leads: nicheName
+            ? state.leads.map((l) => (l.niche === nicheName ? { ...l, niche: undefined } : l))
+            : state.leads,
+          selectedNicheFilter:
+            state.selectedNicheFilter === nicheName ? 'all' : state.selectedNicheFilter,
         }));
       },
 
@@ -727,6 +735,16 @@ export const useCRMStore = create<CRMState>()(
         projects: state.projects,
         tasks: state.tasks,
         templates: state.templates,
+        niches: state.niches,
+        dailyGoal: state.dailyGoal,
+        streakDays: state.streakDays,
+      }),
+      merge: (persistedState: any, currentState: CRMState) => ({
+        ...currentState,
+        ...persistedState,
+        niches: Array.isArray(persistedState?.niches)
+          ? persistedState.niches
+          : currentState.niches,
       }),
     }
   )
