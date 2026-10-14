@@ -56,7 +56,7 @@ export const BottomNav: React.FC = () => {
   ];
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-800 bg-zinc-950/95 backdrop-blur-lg px-2 py-1 safe-area-pb">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-zinc-800 bg-zinc-950/95 backdrop-blur-lg px-1 sm:px-2 pt-1 pb-2 sm:pb-1 shadow-2xl">
       <div className="flex items-center justify-around">
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -65,7 +65,7 @@ export const BottomNav: React.FC = () => {
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id as any)}
-              className={`relative flex flex-col items-center justify-center py-1.5 px-3 rounded-xl transition-all duration-150 ${
+              className={`relative flex flex-col items-center justify-center py-1.5 px-1.5 xs:px-2.5 sm:px-3 rounded-xl transition-all duration-150 active:scale-95 ${
                 isActive
                   ? 'text-emerald-400 font-bold'
                   : 'text-zinc-400 hover:text-zinc-200 font-medium'

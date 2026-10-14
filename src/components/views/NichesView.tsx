@@ -211,16 +211,16 @@ export const NichesView: React.FC<NichesViewProps> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           {/* Search bar */}
-          <div className="relative">
+          <div className="relative flex-1 sm:w-56">
             <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-zinc-500" />
             <input
               type="text"
               placeholder="Search niches..."
               value={nicheSearch}
               onChange={(e) => setNicheSearch(e.target.value)}
-              className="rounded-xl border border-zinc-800 bg-zinc-900/90 pl-8 pr-3 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none w-44 sm:w-56"
+              className="w-full rounded-xl border border-zinc-800 bg-zinc-900/90 pl-8 pr-3 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
             />
           </div>
 

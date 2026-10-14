@@ -432,7 +432,7 @@ export const AnalyticsView: React.FC = () => {
 
         {/* Decision Matrix Table */}
         <div className="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950/50">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-left text-xs min-w-[620px]">
             <thead className="border-b border-zinc-800 bg-zinc-900/90 text-zinc-400 uppercase font-bold text-[10px] tracking-wider">
               <tr>
                 <th className="px-4 py-3">Cadence Stage</th>

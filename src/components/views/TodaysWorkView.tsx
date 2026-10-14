@@ -422,7 +422,7 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5 flex-wrap">
+                          <div className="grid grid-cols-2 xs:grid-cols-4 sm:flex sm:items-center gap-1.5 w-full sm:w-auto">
                             {/* Unseen / Sent */}
                             <button
                               type="button"
@@ -433,7 +433,7 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                                 );
                                 setTimeout(() => setToastMessage(null), 3000);
                               }}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                              className={`px-2 py-1.5 sm:px-2.5 sm:py-1 rounded-lg text-[10px] sm:text-[11px] font-bold border transition-all cursor-pointer text-center flex items-center justify-center ${
                                 targetStage.viewStatus === 'unseen' ||
                                 targetStage.viewStatus === 'unchecked'
                                   ? 'bg-zinc-800 border-zinc-600 text-zinc-200 ring-1 ring-zinc-500/30'
@@ -454,7 +454,7 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                                 );
                                 setTimeout(() => setToastMessage(null), 3000);
                               }}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                              className={`px-2 py-1.5 sm:px-2.5 sm:py-1 rounded-lg text-[10px] sm:text-[11px] font-bold border transition-all cursor-pointer text-center flex items-center justify-center ${
                                 targetStage.viewStatus === 'seen'
                                   ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 ring-1 ring-cyan-500/40'
                                   : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-500 hover:text-cyan-300'
@@ -474,7 +474,7 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                                 );
                                 setTimeout(() => setToastMessage(null), 3000);
                               }}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                              className={`px-2 py-1.5 sm:px-2.5 sm:py-1 rounded-lg text-[10px] sm:text-[11px] font-bold border transition-all cursor-pointer text-center flex items-center justify-center ${
                                 targetStage.viewStatus === 'replied'
                                   ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 ring-1 ring-emerald-500/40'
                                   : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-500 hover:text-emerald-300'
@@ -494,7 +494,7 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                                 );
                                 setTimeout(() => setToastMessage(null), 3000);
                               }}
-                              className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                              className={`px-2 py-1.5 sm:px-2.5 sm:py-1 rounded-lg text-[10px] sm:text-[11px] font-bold border transition-all cursor-pointer text-center flex items-center justify-center ${
                                 targetStage.viewStatus === 'rejected'
                                   ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 ring-1 ring-rose-500/40'
                                   : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-500 hover:text-rose-300'
@@ -510,15 +510,15 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                   </div>
 
                   {/* Bottom Actions: Send & Auto-Advance + Kill-Switch dropdown */}
-                  <div className="pt-4 mt-3 border-t border-zinc-800/80 flex flex-wrap items-center justify-between gap-2">
+                  <div className="pt-3 mt-3 border-t border-zinc-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                     {/* Kill Switch Selector */}
-                    <div className="flex items-center gap-1 text-xs">
+                    <div className="w-full sm:w-auto">
                       <select
                         onChange={(e) =>
                           handleKillSwitchChange(lead.id, e.target.value as KillSwitchStatus)
                         }
                         defaultValue=""
-                        className="rounded-lg border border-zinc-800 bg-zinc-900/90 px-2 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 focus:border-zinc-700 focus:outline-none cursor-pointer"
+                        className="w-full sm:w-auto rounded-xl border border-zinc-800 bg-zinc-900/90 px-3 py-2 text-xs text-zinc-400 hover:text-zinc-200 focus:border-zinc-700 focus:outline-none cursor-pointer"
                       >
                         <option value="" disabled>
                           Pipeline Action...
@@ -530,16 +530,16 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                     </div>
 
                     {/* Actions: Message Sent & WhatsApp Launch */}
-                    <div className="flex items-center gap-2 flex-1 sm:flex-initial justify-end">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
                       {/* Secondary WhatsApp Launch Button */}
                       <button
                         type="button"
                         onClick={() => handleSendAndAdvance(stage, lead.name)}
                         title="Open WhatsApp chat with prefilled template"
-                        className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/90 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 hover:text-white px-3 py-2.5 transition-all active:scale-95 cursor-pointer"
+                        className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/90 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 hover:text-white px-3 py-2.5 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
                       >
                         <Send className="h-3.5 w-3.5 text-emerald-400" />
-                        <span>Open WhatsApp</span>
+                        <span>WhatsApp</span>
                       </button>
 
                       {/* Primary "Message Sent" Auto-Advance Button */}
@@ -549,13 +549,13 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                         title={`Click to mark message as sent and automatically advance lead to ${
                           stage.stageNumber < 5 ? `Follow-up ${stage.stageNumber + 1}` : 'Completed'
                         }`}
-                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-950/60 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-900/80 transition-all active:scale-95 cursor-pointer ring-1 ring-emerald-400/30"
+                        className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 sm:px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-950/60 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-900/80 transition-all active:scale-95 cursor-pointer ring-1 ring-emerald-400/30 whitespace-nowrap"
                       >
-                        <CheckCircle2 className="h-4 w-4 text-emerald-100" />
+                        <CheckCircle2 className="h-4 w-4 text-emerald-100 shrink-0" />
                         <span>
                           {stage.stageNumber < 5
-                            ? `Message Sent → Move to Follow-up ${stage.stageNumber + 1}`
-                            : 'Message Sent & Complete'}
+                            ? `Sent → FU ${stage.stageNumber + 1}`
+                            : 'Sent & Complete'}
                         </span>
                       </button>
                     </div>

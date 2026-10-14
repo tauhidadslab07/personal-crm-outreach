@@ -45,6 +45,7 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   const [filterStage, setFilterStage] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterCountry, setFilterCountry] = useState<string>('all');
+  const [mobileKanbanStage, setMobileKanbanStage] = useState<number | 'all'>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const handleMessageSent = (lead: Lead) => {
@@ -162,16 +163,16 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
       </div>
 
       {/* Filter Row */}
-      <div className="flex flex-wrap items-center gap-2.5 bg-zinc-900/60 p-3 rounded-2xl border border-zinc-800/80">
-        <Filter className="h-4 w-4 text-zinc-400 shrink-0 ml-1" />
+      <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 bg-zinc-900/60 p-2.5 sm:p-3 rounded-2xl border border-zinc-800/80">
+        <Filter className="h-4 w-4 text-zinc-400 shrink-0 ml-1 hidden xs:block" />
 
         {/* Stage Filter */}
         <select
           value={filterStage}
           onChange={(e) => setFilterStage(e.target.value)}
-          className="rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none"
+          className="flex-1 min-w-[130px] sm:flex-initial rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none"
         >
-          <option value="all">All Cadence Stages</option>
+          <option value="all">All Stages</option>
           <option value="0">Stage 0: Initial Outreach</option>
           <option value="1">Stage 1: Follow-up 1</option>
           <option value="2">Stage 2: Follow-up 2</option>
@@ -184,9 +185,9 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none"
+          className="flex-1 min-w-[130px] sm:flex-initial rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none"
         >
-          <option value="all">All Pipeline Statuses</option>
+          <option value="all">All Statuses</option>
           <option value="active">Active Outreach Loop</option>
           <option value="booked_meeting">Booked Meeting</option>
           <option value="not_interested">Not Interested / Opt-Out</option>
@@ -198,7 +199,7 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         <select
           value={filterCountry}
           onChange={(e) => setFilterCountry(e.target.value)}
-          className="rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none"
+          className="flex-1 min-w-[120px] sm:flex-initial rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none"
         >
           <option value="all">All Countries</option>
           {countries.map((c) => (
@@ -212,7 +213,7 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         <select
           value={selectedNicheFilter}
           onChange={(e) => setSelectedNicheFilter(e.target.value)}
-          className="rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none font-medium"
+          className="flex-1 min-w-[120px] sm:flex-initial rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none font-medium"
         >
           <option value="all">All Niches</option>
           {niches.map((n) => (
@@ -225,19 +226,24 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
 
       {/* Render Mode: Table */}
       {viewMode === 'table' ? (
-        <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900/60 shadow-xl backdrop-blur">
-          <table className="w-full text-left text-xs">
-            <thead className="border-b border-zinc-800 bg-zinc-900/90 text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-              <tr>
-                <th className="px-4 py-3">Lead & Company</th>
-                <th className="px-4 py-3">Country & Flag</th>
-                <th className="px-4 py-3">WhatsApp Click-to-Chat</th>
-                <th className="px-4 py-3">Cadence Stage</th>
-                <th className="px-4 py-3">Message Status</th>
-                <th className="px-4 py-3">Pipeline Status</th>
-                <th className="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
+        <div className="space-y-1.5">
+          <div className="md:hidden text-[11px] text-zinc-500 px-1 flex items-center justify-between">
+            <span>👈 Swipe table horizontally to see all columns 👉</span>
+            <span className="font-semibold text-emerald-400">{filteredLeads.length} leads</span>
+          </div>
+          <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900/60 shadow-xl backdrop-blur">
+            <table className="w-full text-left text-xs min-w-[720px]">
+              <thead className="border-b border-zinc-800 bg-zinc-900/90 text-[11px] font-bold uppercase tracking-wider text-zinc-400">
+                <tr>
+                  <th className="px-4 py-3">Lead & Company</th>
+                  <th className="px-4 py-3">Country & Flag</th>
+                  <th className="px-4 py-3">WhatsApp Click-to-Chat</th>
+                  <th className="px-4 py-3">Cadence Stage</th>
+                  <th className="px-4 py-3">Message Status</th>
+                  <th className="px-4 py-3">Pipeline Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
             <tbody className="divide-y divide-zinc-800/60">
               {filteredLeads.map((lead) => {
                 const prevStageNum = lead.currentStage > 0 ? (lead.currentStage - 1) : 0;
@@ -375,16 +381,48 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
             </tbody>
           </table>
         </div>
-      ) : (
+      </div>
+    ) : (
         /* Render Mode: Kanban by Cadence Stage */
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 overflow-x-auto pb-4">
-          {([0, 1, 2, 3, 4, 5] as CadenceStageNumber[]).map((stageNum) => {
-            const stageLeads = filteredLeads.filter((l) => l.currentStage === stageNum);
-            return (
-              <div
-                key={stageNum}
-                className="flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900/40 p-3 min-w-[220px]"
+        <div className="space-y-3">
+          {/* Mobile Stage Switcher Pills */}
+          <div className="md:hidden flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            <button
+              onClick={() => setMobileKanbanStage('all')}
+              className={`rounded-xl px-3 py-1.5 text-xs font-semibold shrink-0 transition-all ${
+                mobileKanbanStage === 'all'
+                  ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
+                  : 'bg-zinc-900 border border-zinc-800 text-zinc-400'
+              }`}
+            >
+              All Columns
+            </button>
+            {([0, 1, 2, 3, 4, 5] as CadenceStageNumber[]).map((num) => (
+              <button
+                key={num}
+                onClick={() => setMobileKanbanStage(num)}
+                className={`rounded-xl px-3 py-1.5 text-xs font-semibold shrink-0 transition-all ${
+                  mobileKanbanStage === num
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
+                    : 'bg-zinc-900 border border-zinc-800 text-zinc-400'
+                }`}
               >
+                {num === 0 ? 'Initial' : num === 5 ? 'Breakup' : `FU ${num}`}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 overflow-x-auto pb-4">
+            {([0, 1, 2, 3, 4, 5] as CadenceStageNumber[]).map((stageNum) => {
+              if (mobileKanbanStage !== 'all' && stageNum !== mobileKanbanStage) {
+                return null;
+              }
+              const stageLeads = filteredLeads.filter((l) => l.currentStage === stageNum);
+              return (
+                <div
+                  key={stageNum}
+                  className="flex flex-col rounded-2xl border border-zinc-800 bg-zinc-900/40 p-3 min-w-[220px]"
+                >
                 <div className="flex items-center justify-between pb-2 mb-2 border-b border-zinc-800">
                   <h4 className="text-xs font-bold text-zinc-200">
                     {stageNum === 0 ? 'Initial' : stageNum === 5 ? 'Breakup' : `FU ${stageNum}`}
@@ -493,7 +531,8 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
             );
           })}
         </div>
-      )}
+      </div>
+    )}
     </div>
   );
 };

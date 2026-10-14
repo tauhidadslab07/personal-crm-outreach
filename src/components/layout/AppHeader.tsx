@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useCRMStore } from '@/lib/store';
 import {
   Search,
@@ -14,6 +14,9 @@ import {
   Layers,
   UserCog,
   LogOut,
+  Menu,
+  X,
+  ShieldCheck,
 } from 'lucide-react';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { exportLeadsToCSV } from '@/lib/csv-export';
@@ -43,21 +46,22 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 
   const currentUser = useAuthStore((s) => s.currentUser);
   const logout = useAuthStore((s) => s.logout);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-zinc-800 bg-zinc-950/80 px-4 sm:px-6 backdrop-blur-md">
+    <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-zinc-800 bg-zinc-950/80 px-3 sm:px-6 backdrop-blur-md">
       {/* Left: Brand & Title */}
-      <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-white shadow-lg shadow-emerald-950/50">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-white shadow-lg shadow-emerald-950/50">
           <Sparkles className="h-5 w-5" />
         </div>
         <div className="hidden xs:block">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <h1 className="text-sm font-bold tracking-tight text-zinc-100">
               Nexus CRM
             </h1>
-            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/20">
-              WhatsApp Engine
+            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[9px] sm:text-[10px] font-bold text-emerald-400 border border-emerald-500/20 hidden sm:inline-block">
+              WhatsApp
             </span>
             {isSupabaseConfigured && (
               <span
@@ -76,21 +80,21 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       </div>
 
       {/* Middle: Universal Search Bar */}
-      <div className="flex-1 max-w-md mx-3">
+      <div className="flex-1 max-w-xs sm:max-w-md mx-2 sm:mx-3">
         <div className="relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
+          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 sm:h-4 sm:w-4 text-zinc-500" />
           <input
             ref={searchInputRef}
             type="text"
-            placeholder="Search leads, phone, company, country... (Press '/' to focus)"
+            placeholder="Search leads, phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-xl border border-zinc-800 bg-zinc-900/90 pl-9 pr-8 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:bg-zinc-900 focus:outline-none transition-all"
+            className="w-full rounded-xl border border-zinc-800 bg-zinc-900/90 pl-8 sm:pl-9 pr-7 sm:pr-8 py-1.5 sm:py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:bg-zinc-900 focus:outline-none transition-all"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-2.5 text-xs text-zinc-500 hover:text-zinc-300"
+              className="absolute right-2.5 top-2 sm:top-2.5 text-xs text-zinc-500 hover:text-zinc-300"
             >
               ×
             </button>
@@ -99,12 +103,12 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
       </div>
 
       {/* Right Actions */}
-      <div className="flex items-center gap-2">
-        {/* Niches button */}
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Niches button (desktop only) */}
         <button
           onClick={() => setActiveTab('niches')}
           title="Manage Target Industry Niches"
-          className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
+          className={`hidden md:inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-semibold transition-all ${
             activeTab === 'niches'
               ? 'border-emerald-500/50 bg-emerald-500/20 text-emerald-300 shadow-sm'
               : 'border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-white'
@@ -114,17 +118,17 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <span>Niches</span>
         </button>
 
-        {/* Export CSV button */}
+        {/* Export CSV button (desktop only) */}
         <button
           onClick={() => exportLeadsToCSV(leads)}
           title="Export Leads to CSV / Excel"
-          className="hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all"
+          className="hidden lg:inline-flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all"
         >
           <Download className="h-3.5 w-3.5 text-emerald-400" />
-          <span className="hidden md:inline">Export CSV</span>
+          <span>Export CSV</span>
         </button>
 
-        {/* Scripts button */}
+        {/* Scripts button (desktop only) */}
         <button
           onClick={onOpenTemplates}
           title="Cadence WhatsApp Scripts"
@@ -134,40 +138,38 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           <span>Scripts</span>
         </button>
 
-        {/* Bulk Import button */}
+        {/* Bulk Import button (desktop only) */}
         <button
           onClick={onOpenBulkImport}
           title="Bulk Lead Importer (B)"
-          className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800 hover:text-white transition-all"
+          className="hidden xl:inline-flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2 text-xs font-semibold text-zinc-200 hover:bg-zinc-800 hover:text-white transition-all"
         >
           <UploadCloud className="h-3.5 w-3.5 text-cyan-400" />
-          <span className="hidden sm:inline">Bulk Import</span>
-          <kbd className="hidden lg:inline-block rounded bg-zinc-800 px-1 py-0.2 text-[9px] text-zinc-400">
+          <span>Bulk Import</span>
+          <kbd className="hidden 2xl:inline-block rounded bg-zinc-800 px-1 py-0.2 text-[9px] text-zinc-400">
             B
           </kbd>
         </button>
 
-        {/* Add Lead button */}
+        {/* Add Lead button (both mobile and desktop) */}
         <button
           onClick={onOpenNewLead}
-          title="Add New Target Lead (N)"
-          className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-bold text-white shadow-md shadow-emerald-950/50 hover:bg-emerald-500 transition-all active:scale-95"
+          title="Add New Target Lead"
+          className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-bold text-white shadow-md shadow-emerald-950/50 hover:bg-emerald-500 transition-all active:scale-95 shrink-0"
         >
           <UserPlus className="h-3.5 w-3.5" />
           <span className="hidden sm:inline">Add Lead</span>
-          <kbd className="hidden lg:inline-block rounded bg-emerald-700/60 px-1 py-0.2 text-[9px] text-emerald-200">
-            N
-          </kbd>
+          <span className="sm:hidden text-xs">Add</span>
         </button>
 
-        {/* User Profile & Logout */}
+        {/* Desktop User Profile & Logout */}
         {currentUser && (
-          <div className="flex items-center gap-1.5 pl-2 border-l border-zinc-800 ml-1">
+          <div className="hidden lg:flex items-center gap-1.5 pl-2 border-l border-zinc-800 ml-1">
             {currentUser.role === 'admin' && onOpenUserManagement && (
               <button
                 onClick={onOpenUserManagement}
                 title="Manage Team Members & Credentials"
-                className="hidden lg:inline-flex items-center gap-1 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 px-2.5 py-1.5 text-xs font-bold text-rose-300 transition-all"
+                className="inline-flex items-center gap-1 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 px-2.5 py-1.5 text-xs font-bold text-rose-300 transition-all"
               >
                 <UserCog className="h-3.5 w-3.5 text-rose-400" />
                 <span>Team</span>
@@ -193,7 +195,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </div>
         )}
 
-        {/* Demo reset */}
+        {/* Demo reset (desktop only) */}
         <button
           onClick={resetToSampleData}
           title="Reset to sample demo data"
@@ -201,7 +203,140 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         >
           <RotateCcw className="h-4 w-4" />
         </button>
+
+        {/* Mobile Hamburger Menu Toggle */}
+        <button
+          onClick={() => setIsMobileMenuOpen(true)}
+          title="Open Mobile Navigation Menu"
+          className="lg:hidden p-2 rounded-xl text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors shrink-0"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
       </div>
+
+      {/* Mobile Slide-Over Drawer */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/75 backdrop-blur-sm transition-opacity"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+
+          {/* Drawer Content */}
+          <div className="fixed inset-y-0 right-0 w-full max-w-xs bg-zinc-950 border-l border-zinc-800 p-5 shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-200 z-10">
+            <div className="space-y-5">
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between border-b border-zinc-800/80 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 text-white font-bold text-sm shadow">
+                    {currentUser?.name?.[0] || 'U'}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-zinc-100 truncate max-w-[150px]">
+                      {currentUser?.name || 'User'}
+                    </h3>
+                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
+                      {currentUser?.role === 'admin' ? '🛡️ Super Admin' : '👤 Team Member'}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Action Buttons List */}
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    onOpenNewLead();
+                  }}
+                  className="w-full flex items-center gap-3 px-3.5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-md shadow-emerald-950/50 transition-all active:scale-95"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  <span>+ Add Target Lead</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    onOpenBulkImport();
+                  }}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold transition-all active:scale-95"
+                >
+                  <UploadCloud className="h-4 w-4 text-cyan-400" />
+                  <span>Bulk Lead Importer</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    onOpenTemplates();
+                  }}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold transition-all active:scale-95"
+                >
+                  <FileCode className="h-4 w-4 text-teal-400" />
+                  <span>Cadence WhatsApp Scripts</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    exportLeadsToCSV(leads);
+                  }}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold transition-all active:scale-95"
+                >
+                  <Download className="h-4 w-4 text-emerald-400" />
+                  <span>Export Leads to CSV</span>
+                </button>
+
+                {currentUser?.role === 'admin' && onOpenUserManagement && (
+                  <button
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      onOpenUserManagement();
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs font-bold transition-all active:scale-95"
+                  >
+                    <UserCog className="h-4 w-4 text-rose-400" />
+                    <span>Team & Access Management</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Bottom: Demo Reset & Sign Out */}
+            <div className="pt-4 border-t border-zinc-800/80 space-y-2">
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  resetToSampleData();
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+                <span>Reset to Sample Demo Data</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  logout();
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold transition-all active:scale-95"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Sign Out</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

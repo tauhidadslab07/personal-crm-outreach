@@ -118,7 +118,7 @@ function CRMContent() {
         />
 
         {/* Dynamic Main Workspace View */}
-        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 bg-zinc-950">
+        <main className="flex-1 overflow-y-auto px-3 sm:px-8 py-4 sm:py-6 pb-28 lg:pb-12 bg-zinc-950">
           {activeTab === 'today' && (
             <TodaysWorkView
               onScheduleMeetingForLead={handleScheduleMeetingForLead}
