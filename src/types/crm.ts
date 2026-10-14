@@ -118,7 +118,7 @@ export type CadenceTemplate = {
   content: string; // Supports {name}, {company}, {service}, {my_name}
 };
 
-export type AnalyticsTimeRange = '7d' | '15d' | '30d' | 'all';
+export type AnalyticsTimeRange = 'today' | 'yesterday' | '7d' | '15d' | '30d' | 'all' | 'custom';
 
 export type Niche = {
   id: string;

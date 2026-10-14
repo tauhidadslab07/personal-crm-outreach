@@ -26,7 +26,11 @@ import {
   Clock,
   XCircle,
   Sparkles,
+  Calendar,
+  Filter,
+  RotateCcw,
 } from 'lucide-react';
+import { getTodayISO, addDays } from '@/lib/date-utils';
 
 export const AnalyticsView: React.FC = () => {
   const leads = useCRMStore((s) => s.leads);
@@ -35,30 +39,107 @@ export const AnalyticsView: React.FC = () => {
   const projects = useCRMStore((s) => s.projects);
 
   const [timeRange, setTimeRange] = useState<AnalyticsTimeRange>('30d');
+  const todayStr = useMemo(() => getTodayISO(), []);
+  const [customStartDate, setCustomStartDate] = useState<string>(addDays(todayStr, -30));
+  const [customEndDate, setCustomEndDate] = useState<string>(todayStr);
+
+  // Date calculation based on selected range
+  const { startDate, endDate, rangeLabel } = useMemo(() => {
+    const today = getTodayISO();
+    if (timeRange === 'today') {
+      return { startDate: today, endDate: today, rangeLabel: `Today (${today})` };
+    }
+    if (timeRange === 'yesterday') {
+      const yest = addDays(today, -1);
+      return { startDate: yest, endDate: yest, rangeLabel: `Yesterday (${yest})` };
+    }
+    if (timeRange === '7d') {
+      const s = addDays(today, -7);
+      return { startDate: s, endDate: today, rangeLabel: `Last 7 Days (${s} to ${today})` };
+    }
+    if (timeRange === '15d') {
+      const s = addDays(today, -15);
+      return { startDate: s, endDate: today, rangeLabel: `Last 15 Days (${s} to ${today})` };
+    }
+    if (timeRange === '30d') {
+      const s = addDays(today, -30);
+      return { startDate: s, endDate: today, rangeLabel: `Last 30 Days (${s} to ${today})` };
+    }
+    if (timeRange === 'custom') {
+      const s = customStartDate || addDays(today, -30);
+      const e = customEndDate || today;
+      return { startDate: s, endDate: e, rangeLabel: `Custom Range (${s} to ${e})` };
+    }
+    // 'all'
+    return { startDate: '1970-01-01', endDate: '2099-12-31', rangeLabel: 'All Time (Complete History)' };
+  }, [timeRange, customStartDate, customEndDate]);
+
+  // Date checker helper
+  const isDateInRange = useMemo(() => {
+    return (dateStr?: string): boolean => {
+      if (!dateStr) return false;
+      const dateOnly = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+      return dateOnly >= startDate && dateOnly <= endDate;
+    };
+  }, [startDate, endDate]);
+
+  // Date-filtered leads
+  const filteredLeads = useMemo(() => {
+    if (timeRange === 'all') return leads;
+    return leads.filter((l) => isDateInRange(l.createdAt) || isDateInRange(l.updatedAt));
+  }, [leads, timeRange, isDateInRange]);
+
+  // Sent stages filtered by date
+  const sentStagesInRange = useMemo(() => {
+    return stages.filter((s) => {
+      if (!s.isSent) return false;
+      if (timeRange === 'all') return true;
+      return isDateInRange(s.sentDate || s.scheduledDate);
+    });
+  }, [stages, timeRange, isDateInRange]);
+
+  // Meetings filtered by date
+  const filteredMeetings = useMemo(() => {
+    if (timeRange === 'all') return meetings;
+    return meetings.filter((m) => isDateInRange(m.meetingDate) || isDateInRange(m.createdAt));
+  }, [meetings, timeRange, isDateInRange]);
+
+  // Projects filtered by date
+  const filteredProjects = useMemo(() => {
+    if (timeRange === 'all') return projects;
+    return projects.filter((p) => isDateInRange(p.acquisitionDate) || isDateInRange(p.createdAt));
+  }, [projects, timeRange, isDateInRange]);
+
+  // Financial aggregates from filtered projects
+  const financials = useMemo(() => {
+    const realizedCash = filteredProjects.reduce((sum, p) => sum + p.paidAmount, 0);
+    const pendingBalance = filteredProjects.reduce((sum, p) => sum + p.remainingBalance, 0);
+    return { realizedCash, pendingBalance };
+  }, [filteredProjects]);
 
   // Niche attribution
   const nicheData = useMemo(() => {
     const map = new Map<string, { niche: string; count: number }>();
-    leads.forEach((l) => {
+    filteredLeads.forEach((l) => {
       const n = l.niche || 'General';
       const existing = map.get(n) || { niche: n, count: 0 };
       existing.count += 1;
       map.set(n, existing);
     });
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [leads]);
+  }, [filteredLeads]);
 
   // Funnel calculations
   const funnelData = useMemo(() => {
-    const totalLeads = leads.length;
-    const initialSent = stages.filter((s) => s.stageNumber === 0 && s.isSent).length;
-    const fu1Sent = stages.filter((s) => s.stageNumber === 1 && s.isSent).length;
-    const fu2Sent = stages.filter((s) => s.stageNumber === 2 && s.isSent).length;
-    const fu3Sent = stages.filter((s) => s.stageNumber === 3 && s.isSent).length;
-    const fu4Sent = stages.filter((s) => s.stageNumber === 4 && s.isSent).length;
-    const fu5Sent = stages.filter((s) => s.stageNumber === 5 && s.isSent).length;
-    const totalMeetings = meetings.length;
-    const closedWon = meetings.filter((m) => m.outcome === 'closed_won').length;
+    const totalLeads = filteredLeads.length;
+    const initialSent = sentStagesInRange.filter((s) => s.stageNumber === 0).length;
+    const fu1Sent = sentStagesInRange.filter((s) => s.stageNumber === 1).length;
+    const fu2Sent = sentStagesInRange.filter((s) => s.stageNumber === 2).length;
+    const fu3Sent = sentStagesInRange.filter((s) => s.stageNumber === 3).length;
+    const fu4Sent = sentStagesInRange.filter((s) => s.stageNumber === 4).length;
+    const fu5Sent = sentStagesInRange.filter((s) => s.stageNumber === 5).length;
+    const totalMeetings = filteredMeetings.length;
+    const closedWon = filteredMeetings.filter((m) => m.outcome === 'closed_won').length;
 
     return [
       { step: 'Total Leads', count: totalLeads, fill: '#64748B' },
@@ -71,7 +152,7 @@ export const AnalyticsView: React.FC = () => {
       { step: 'Meetings Booked', count: totalMeetings, fill: '#14B8A6' },
       { step: 'Closed Won Deals', count: closedWon, fill: '#10B981' },
     ];
-  }, [leads, stages, meetings]);
+  }, [filteredLeads, sentStagesInRange, filteredMeetings]);
 
   // Stage-by-Stage Drop-off Analysis
   const dropOffAnalysis = useMemo(() => {
@@ -80,9 +161,8 @@ export const AnalyticsView: React.FC = () => {
     for (let i = 0; i < steps.length - 1; i++) {
       const from = steps[i];
       const to = steps[i + 1];
-      const dropOffCount = Math.max(0, from.count - to.count);
       const conversionRate = from.count > 0 ? Math.round((to.count / from.count) * 100) : 0;
-      const dropOffRate = 100 - conversionRate;
+      const dropOffRate = from.count > 0 ? 100 - conversionRate : 0;
 
       results.push({
         transition: `${from.step} → ${to.step}`,
@@ -98,7 +178,7 @@ export const AnalyticsView: React.FC = () => {
   // Country Attribution
   const countryData = useMemo(() => {
     const map = new Map<string, { country: string; flag: string; count: number }>();
-    leads.forEach((l) => {
+    filteredLeads.forEach((l) => {
       const existing = map.get(l.isoCode) || {
         country: l.countryName,
         flag: l.flagEmoji,
@@ -108,14 +188,7 @@ export const AnalyticsView: React.FC = () => {
       map.set(l.isoCode, existing);
     });
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
-  }, [leads]);
-
-  // Financial aggregates from projects
-  const financials = useMemo(() => {
-    const realizedCash = projects.reduce((sum, p) => sum + p.paidAmount, 0);
-    const pendingBalance = projects.reduce((sum, p) => sum + p.remainingBalance, 0);
-    return { realizedCash, pendingBalance };
-  }, [projects]);
+  }, [filteredLeads]);
 
   // Stage Engagement Analytics (Seen / Unseen / Replied / Rejected)
   const stageEngagementData = useMemo(() => {
@@ -129,7 +202,7 @@ export const AnalyticsView: React.FC = () => {
     ];
 
     const results = stageMeta.map(({ num, title, short }) => {
-      const relevant = stages.filter((s) => s.stageNumber === num && s.isSent);
+      const relevant = sentStagesInRange.filter((s) => s.stageNumber === num);
       const totalSent = relevant.length;
 
       let replied = 0;
@@ -141,7 +214,7 @@ export const AnalyticsView: React.FC = () => {
         if (s.viewStatus === 'replied') replied++;
         else if (s.viewStatus === 'seen') seen++;
         else if (s.viewStatus === 'rejected') rejected++;
-        else unseen++; // 'unseen' or 'unchecked'
+        else unseen++;
       });
 
       const replyRate = totalSent > 0 ? Math.round((replied / totalSent) * 100) : 0;
@@ -208,37 +281,114 @@ export const AnalyticsView: React.FC = () => {
       peakReplyStage,
       peakRejectStage,
     };
-  }, [stages]);
+  }, [sentStagesInRange]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      {/* Top Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-4">
-        <div>
-          <h2 className="text-xl font-bold text-zinc-100 tracking-tight flex items-center gap-2">
-            <BarChart3 className="h-5 w-5 text-emerald-400" />
-            Performance & Conversion Funnel Analytics
-          </h2>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Stage drop-off pinpointing, country attribution, and pipeline velocity metrics
-          </p>
+      {/* Top Controls with Live Date Filters */}
+      <div className="flex flex-col gap-3 border-b border-zinc-800 pb-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-zinc-100 tracking-tight flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-emerald-400" />
+              Performance & Conversion Funnel Analytics
+            </h2>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Date-wise conversion funnel, cadence knock intelligence, and revenue pipeline tracking
+            </p>
+          </div>
+
+          {/* Time range pills with Today, Yesterday, 7D, 15D, 30D, All Time, Custom */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex rounded-xl border border-zinc-800 bg-zinc-900 p-1 overflow-x-auto max-w-full">
+              {[
+                { id: 'today', label: 'Today' },
+                { id: 'yesterday', label: 'Yesterday' },
+                { id: '7d', label: '7D' },
+                { id: '15d', label: '15D' },
+                { id: '30d', label: '30D' },
+                { id: 'all', label: 'All Time' },
+                { id: 'custom', label: '📅 Custom' },
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setTimeRange(item.id as AnalyticsTimeRange)}
+                  className={`rounded-lg px-2.5 sm:px-3 py-1 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                    timeRange === item.id
+                      ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
-        {/* Time range pills */}
-        <div className="flex rounded-xl border border-zinc-800 bg-zinc-900 p-1">
-          {(['7d', '15d', '30d', 'all'] as AnalyticsTimeRange[]).map((r) => (
-            <button
-              key={r}
-              onClick={() => setTimeRange(r)}
-              className={`rounded-lg px-3 py-1 text-xs font-semibold uppercase transition-all ${
-                timeRange === r
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              {r === 'all' ? 'All Time' : r}
-            </button>
-          ))}
+        {/* Custom Date Range Picker (Expands when 'custom' is active) */}
+        {timeRange === 'custom' && (
+          <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl border border-zinc-700/80 bg-zinc-900/90 shadow-lg">
+            <div className="flex items-center gap-2 text-xs text-zinc-300 font-semibold">
+              <Calendar className="h-4 w-4 text-emerald-400" />
+              <span>Select Date Window:</span>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <label className="text-[11px] text-zinc-400 flex items-center gap-1.5">
+                <span>From:</span>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                />
+              </label>
+              <span className="text-zinc-500 font-bold">→</span>
+              <label className="text-[11px] text-zinc-400 flex items-center gap-1.5">
+                <span>To:</span>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="rounded-lg border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-100 focus:outline-none focus:border-emerald-500 cursor-pointer"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomStartDate(addDays(todayStr, -7));
+                  setCustomEndDate(todayStr);
+                }}
+                className="flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1 text-[11px] text-zinc-300 transition-colors cursor-pointer"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span>Reset (7D)</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Active Filter Ribbon with Date-wise Summary */}
+        <div className="flex flex-wrap items-center justify-between gap-2 bg-zinc-900/40 px-3 py-2 rounded-xl border border-zinc-800/60 text-xs">
+          <div className="flex items-center gap-2 text-zinc-300">
+            <Calendar className="h-4 w-4 text-emerald-400 shrink-0" />
+            <span className="text-zinc-400">Date Range Filter:</span>
+            <span className="font-bold text-emerald-400 font-mono">{rangeLabel}</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap font-mono text-[11px]">
+            <span className="rounded-lg bg-zinc-800 px-2 py-0.5 text-zinc-300 border border-zinc-700/50">
+              👥 <b className="text-white">{filteredLeads.length}</b> Leads
+            </span>
+            <span className="rounded-lg bg-zinc-800 px-2 py-0.5 text-zinc-300 border border-zinc-700/50">
+              ✉️ <b className="text-white">{sentStagesInRange.length}</b> Messages Sent
+            </span>
+            <span className="rounded-lg bg-zinc-800 px-2 py-0.5 text-zinc-300 border border-zinc-700/50">
+              💬 <b className="text-emerald-400">{stageEngagementData.totalRepliedAll}</b> Knocks/Replies
+            </span>
+            <span className="rounded-lg bg-zinc-800 px-2 py-0.5 text-zinc-300 border border-zinc-700/50">
+              🤝 <b className="text-cyan-400">{filteredMeetings.length}</b> Meetings
+            </span>
+          </div>
         </div>
       </div>
 
@@ -246,13 +396,17 @@ export const AnalyticsView: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 shadow-lg backdrop-blur">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-zinc-400">Total Active Leads</span>
+            <span className="text-xs font-semibold text-zinc-400">
+              {timeRange === 'all' ? 'Total Active Leads' : 'Leads in Range'}
+            </span>
             <Users className="h-4 w-4 text-sky-400" />
           </div>
           <div className="text-2xl font-mono font-bold text-zinc-100 mt-1">
-            {leads.length}
+            {filteredLeads.length}
           </div>
-          <p className="text-[11px] text-zinc-500 mt-0.5">All registered prospects</p>
+          <p className="text-[11px] text-zinc-500 mt-0.5">
+            {timeRange === 'all' ? 'All registered prospects' : `Prospects logged in selected date window`}
+          </p>
         </div>
 
         <div className="rounded-2xl border border-emerald-500/20 bg-emerald-950/20 p-4 shadow-lg backdrop-blur">
@@ -260,7 +414,7 @@ export const AnalyticsView: React.FC = () => {
           <div className="text-2xl font-mono font-bold text-emerald-400 mt-1">
             ${financials.realizedCash.toLocaleString()}
           </div>
-          <p className="text-[11px] text-emerald-400/70 mt-0.5">Banked client payments</p>
+          <p className="text-[11px] text-emerald-400/70 mt-0.5">Banked client payments in range</p>
         </div>
 
         <div className="rounded-2xl border border-amber-500/20 bg-amber-950/20 p-4 shadow-lg backdrop-blur">

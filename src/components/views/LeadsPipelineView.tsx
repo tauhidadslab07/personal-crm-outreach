@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useCRMStore } from '@/lib/store';
 import { Lead, CadenceStageNumber, KillSwitchStatus, StageViewStatus } from '@/types/crm';
-import { STAGE_TITLES } from '@/lib/date-utils';
+import { STAGE_TITLES, getTodayISO, addDays } from '@/lib/date-utils';
 import { CountryBadge } from '../common/CountryBadge';
 import { PhoneBadge } from '../common/PhoneBadge';
 import {
@@ -45,6 +45,7 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   const [filterStage, setFilterStage] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterCountry, setFilterCountry] = useState<string>('all');
+  const [filterDate, setFilterDate] = useState<string>('all');
   const [mobileKanbanStage, setMobileKanbanStage] = useState<number | 'all'>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -68,8 +69,9 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
     return Array.from(map.values());
   }, [leads]);
 
-  // Filtered Leads
+  // Filtered Leads with Date Range Support
   const filteredLeads = useMemo(() => {
+    const today = getTodayISO();
     return leads.filter((lead) => {
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -97,9 +99,19 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         return false;
       }
 
+      // Date registered filter
+      if (filterDate !== 'all') {
+        const createdDate = (lead.createdAt || lead.updatedAt || '').split('T')[0];
+        if (filterDate === 'today' && createdDate !== today) return false;
+        if (filterDate === 'yesterday' && createdDate !== addDays(today, -1)) return false;
+        if (filterDate === '7d' && createdDate < addDays(today, -7)) return false;
+        if (filterDate === '15d' && createdDate < addDays(today, -15)) return false;
+        if (filterDate === '30d' && createdDate < addDays(today, -30)) return false;
+      }
+
       return true;
     });
-  }, [leads, searchQuery, filterStage, filterStatus, filterCountry, selectedNicheFilter]);
+  }, [leads, searchQuery, filterStage, filterStatus, filterCountry, selectedNicheFilter, filterDate]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
@@ -222,6 +234,20 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
             </option>
           ))}
         </select>
+
+        {/* Date Filter */}
+        <select
+          value={filterDate}
+          onChange={(e) => setFilterDate(e.target.value)}
+          className="flex-1 min-w-[130px] sm:flex-initial rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none font-medium"
+        >
+          <option value="all">📅 All Dates</option>
+          <option value="today">📅 Registered Today</option>
+          <option value="yesterday">📅 Yesterday</option>
+          <option value="7d">📅 Last 7 Days</option>
+          <option value="15d">📅 Last 15 Days</option>
+          <option value="30d">📅 Last 30 Days</option>
+        </select>
       </div>
 
       {/* Render Mode: Table */}
@@ -257,13 +283,18 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                   <tr key={lead.id} className="hover:bg-zinc-800/40 transition-colors">
                     <td className="px-4 py-3.5">
                       <div className="font-bold text-zinc-100 text-sm">{lead.name}</div>
-                      <div className="flex items-center gap-1.5 mt-0.5">
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         {lead.company && (
                           <span className="text-zinc-400 text-xs">{lead.company}</span>
                         )}
                         {lead.niche && (
                           <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-400">
                             {lead.niche}
+                          </span>
+                        )}
+                        {lead.createdAt && (
+                          <span className="text-[10px] text-zinc-500 font-mono">
+                            📅 {lead.createdAt.split('T')[0]}
                           </span>
                         )}
                       </div>
@@ -460,9 +491,21 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                           <p className="text-[11px] text-zinc-400 truncate">{lead.company}</p>
                         )}
                         {lead.niche && (
-                          <div className="pt-0.5">
+                          <div className="pt-0.5 flex items-center justify-between gap-1 flex-wrap">
                             <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-semibold text-emerald-400">
                               {lead.niche}
+                            </span>
+                            {lead.createdAt && (
+                              <span className="text-[9px] text-zinc-500 font-mono">
+                                📅 {lead.createdAt.split('T')[0]}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {!lead.niche && lead.createdAt && (
+                          <div className="pt-0.5">
+                            <span className="text-[9px] text-zinc-500 font-mono">
+                              📅 {lead.createdAt.split('T')[0]}
                             </span>
                           </div>
                         )}
