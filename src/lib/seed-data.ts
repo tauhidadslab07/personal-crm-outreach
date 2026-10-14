@@ -250,7 +250,7 @@ export function getInitialSeedData(): {
       title: 'Initial Outreach',
       scheduledDate: today,
       isSent: false,
-      viewStatus: 'unchecked',
+      viewStatus: 'unseen',
       templateScript: DEFAULT_CADENCE_TEMPLATES[0].content,
     },
     // Lead 2 (Sarah US): Initial sent 2 days ago, FU 1 overdue! (Scheduled yesterday)
@@ -272,7 +272,7 @@ export function getInitialSeedData(): {
       title: 'Follow-up 1',
       scheduledDate: yesterday, // Overdue by 1 day!
       isSent: false,
-      viewStatus: 'unchecked',
+      viewStatus: 'seen',
       templateScript: DEFAULT_CADENCE_TEMPLATES[1].content,
     },
     // Lead 3 (Oliver UK): FU 2 due today
@@ -284,7 +284,7 @@ export function getInitialSeedData(): {
       scheduledDate: addDays(today, -6),
       sentDate: `${addDays(today, -6)}T09:00:00`,
       isSent: true,
-      viewStatus: 'seen',
+      viewStatus: 'replied',
       templateScript: DEFAULT_CADENCE_TEMPLATES[0].content,
     },
     {
@@ -305,7 +305,7 @@ export function getInitialSeedData(): {
       title: 'Follow-up 2',
       scheduledDate: today, // Due today!
       isSent: false,
-      viewStatus: 'unchecked',
+      viewStatus: 'unseen',
       templateScript: DEFAULT_CADENCE_TEMPLATES[2].content,
     },
     // Lead 4 (Zayed AE): FU 3 due today
@@ -317,7 +317,7 @@ export function getInitialSeedData(): {
       scheduledDate: addDays(today, -4),
       sentDate: `${addDays(today, -4)}T14:00:00`,
       isSent: true,
-      viewStatus: 'seen',
+      viewStatus: 'replied',
       templateScript: DEFAULT_CADENCE_TEMPLATES[2].content,
     },
     {
@@ -327,7 +327,7 @@ export function getInitialSeedData(): {
       title: 'Follow-up 3',
       scheduledDate: today, // Due today!
       isSent: false,
-      viewStatus: 'unchecked',
+      viewStatus: 'seen',
       templateScript: DEFAULT_CADENCE_TEMPLATES[3].content,
     },
     // Lead 5 (Maximilian DE): FU 4 due today
@@ -339,7 +339,7 @@ export function getInitialSeedData(): {
       scheduledDate: addDays(today, -5),
       sentDate: `${addDays(today, -5)}T15:30:00`,
       isSent: true,
-      viewStatus: 'seen',
+      viewStatus: 'rejected',
       templateScript: DEFAULT_CADENCE_TEMPLATES[3].content,
     },
     {
@@ -349,7 +349,7 @@ export function getInitialSeedData(): {
       title: 'Follow-up 4',
       scheduledDate: today, // Due today!
       isSent: false,
-      viewStatus: 'unchecked',
+      viewStatus: 'unseen',
       templateScript: DEFAULT_CADENCE_TEMPLATES[4].content,
     },
     // Lead 6 (Liam AU): FU 5 (Breakup) due today
@@ -361,7 +361,7 @@ export function getInitialSeedData(): {
       scheduledDate: addDays(today, -7),
       sentDate: `${addDays(today, -7)}T16:00:00`,
       isSent: true,
-      viewStatus: 'seen',
+      viewStatus: 'rejected',
       templateScript: DEFAULT_CADENCE_TEMPLATES[4].content,
     },
     {
@@ -371,8 +371,31 @@ export function getInitialSeedData(): {
       title: 'Follow-up 5 (Breakup)',
       scheduledDate: today, // Due today!
       isSent: false,
-      viewStatus: 'unchecked',
+      viewStatus: 'unseen',
       templateScript: DEFAULT_CADENCE_TEMPLATES[5].content,
+    },
+    // Lead 7 (Elena CA): Booked meeting
+    {
+      id: 'stg-7-0',
+      leadId: 'lead-7',
+      stageNumber: 0,
+      title: 'Initial Outreach',
+      scheduledDate: addDays(today, -5),
+      sentDate: `${addDays(today, -5)}T10:00:00`,
+      isSent: true,
+      viewStatus: 'seen',
+      templateScript: DEFAULT_CADENCE_TEMPLATES[0].content,
+    },
+    {
+      id: 'stg-7-1',
+      leadId: 'lead-7',
+      stageNumber: 1,
+      title: 'Follow-up 1',
+      scheduledDate: addDays(today, -3),
+      sentDate: `${addDays(today, -3)}T11:00:00`,
+      isSent: true,
+      viewStatus: 'replied',
+      templateScript: DEFAULT_CADENCE_TEMPLATES[1].content,
     },
     // Lead 8 (Marcus SG): Initial outreach due today
     {
@@ -382,7 +405,7 @@ export function getInitialSeedData(): {
       title: 'Initial Outreach',
       scheduledDate: today,
       isSent: false,
-      viewStatus: 'unchecked',
+      viewStatus: 'unseen',
       templateScript: DEFAULT_CADENCE_TEMPLATES[0].content,
     },
   ];

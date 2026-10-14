@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useCRMStore } from '@/lib/store';
-import { Lead, CadenceStageNumber, KillSwitchStatus } from '@/types/crm';
+import { Lead, CadenceStageNumber, KillSwitchStatus, StageViewStatus } from '@/types/crm';
 import { STAGE_TITLES } from '@/lib/date-utils';
 import { CountryBadge } from '../common/CountryBadge';
 import { PhoneBadge } from '../common/PhoneBadge';
@@ -31,6 +31,8 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   onOpenNewLead,
 }) => {
   const leads = useCRMStore((s) => s.leads);
+  const stages = useCRMStore((s) => s.stages);
+  const setStageViewStatus = useCRMStore((s) => s.setStageViewStatus);
   const deleteLead = useCRMStore((s) => s.deleteLead);
   const advanceLeadStage = useCRMStore((s) => s.advanceLeadStage);
   const setKillSwitch = useCRMStore((s) => s.setKillSwitch);
@@ -231,95 +233,128 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                 <th className="px-4 py-3">Country & Flag</th>
                 <th className="px-4 py-3">WhatsApp Click-to-Chat</th>
                 <th className="px-4 py-3">Cadence Stage</th>
+                <th className="px-4 py-3">Message Status</th>
                 <th className="px-4 py-3">Pipeline Status</th>
                 <th className="px-4 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60">
-              {filteredLeads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-zinc-800/40 transition-colors">
-                  <td className="px-4 py-3.5">
-                    <div className="font-bold text-zinc-100 text-sm">{lead.name}</div>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      {lead.company && (
-                        <span className="text-zinc-400 text-xs">{lead.company}</span>
-                      )}
-                      {lead.niche && (
-                        <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-400">
-                          {lead.niche}
+              {filteredLeads.map((lead) => {
+                const currentStage = stages.find(
+                  (s) => s.leadId === lead.id && s.stageNumber === lead.currentStage
+                );
+                return (
+                  <tr key={lead.id} className="hover:bg-zinc-800/40 transition-colors">
+                    <td className="px-4 py-3.5">
+                      <div className="font-bold text-zinc-100 text-sm">{lead.name}</div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {lead.company && (
+                          <span className="text-zinc-400 text-xs">{lead.company}</span>
+                        )}
+                        {lead.niche && (
+                          <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-400">
+                            {lead.niche}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-3.5">
+                      <CountryBadge country={lead} size="sm" showName={true} />
+                    </td>
+
+                    <td className="px-4 py-3.5">
+                      <PhoneBadge
+                        phone={lead.phoneRaw}
+                        sanitizedPhone={lead.phoneSanitized}
+                        flagEmoji={lead.flagEmoji}
+                        isoCode={lead.isoCode}
+                      />
+                    </td>
+
+                    <td className="px-4 py-3.5">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="rounded-lg bg-zinc-800 px-2.5 py-1 text-xs font-semibold text-zinc-200 border border-zinc-700/60 whitespace-nowrap">
+                          {STAGE_TITLES[lead.currentStage]}
                         </span>
-                      )}
-                    </div>
-                  </td>
+                        {lead.killSwitchStatus === 'active' && lead.currentStage < 5 && (
+                          <button
+                            type="button"
+                            onClick={() => handleMessageSent(lead)}
+                            title={`Click to mark message as sent and automatically advance lead to Follow-up ${lead.currentStage + 1}`}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 text-xs font-bold transition-all active:scale-95 shadow-md shadow-emerald-950/40 whitespace-nowrap cursor-pointer"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                            <span>Message Sent → FU {lead.currentStage + 1}</span>
+                          </button>
+                        )}
+                      </div>
+                    </td>
 
-                  <td className="px-4 py-3.5">
-                    <CountryBadge country={lead} size="sm" showName={true} />
-                  </td>
-
-                  <td className="px-4 py-3.5">
-                    <PhoneBadge
-                      phone={lead.phoneRaw}
-                      sanitizedPhone={lead.phoneSanitized}
-                      flagEmoji={lead.flagEmoji}
-                      isoCode={lead.isoCode}
-                    />
-                  </td>
-
-                  <td className="px-4 py-3.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="rounded-lg bg-zinc-800 px-2.5 py-1 text-xs font-semibold text-zinc-200 border border-zinc-700/60 whitespace-nowrap">
-                        {STAGE_TITLES[lead.currentStage]}
-                      </span>
-                      {lead.killSwitchStatus === 'active' && lead.currentStage < 5 && (
-                        <button
-                          type="button"
-                          onClick={() => handleMessageSent(lead)}
-                          title={`Click to mark message as sent and automatically advance lead to Follow-up ${lead.currentStage + 1}`}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 text-xs font-bold transition-all active:scale-95 shadow-md shadow-emerald-950/40 whitespace-nowrap cursor-pointer"
+                    <td className="px-4 py-3.5">
+                      {currentStage ? (
+                        <select
+                          value={currentStage.viewStatus || 'unseen'}
+                          onChange={(e) =>
+                            setStageViewStatus(currentStage.id, e.target.value as StageViewStatus)
+                          }
+                          className={`rounded-lg px-2.5 py-1 text-xs font-bold border transition-all cursor-pointer ${
+                            currentStage.viewStatus === 'replied'
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                              : currentStage.viewStatus === 'seen'
+                              ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                              : currentStage.viewStatus === 'rejected'
+                              ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                              : 'bg-zinc-800 text-zinc-300 border-zinc-700'
+                          }`}
                         >
-                          <CheckCircle2 className="h-3.5 w-3.5 text-white" />
-                          <span>Message Sent → FU {lead.currentStage + 1}</span>
-                        </button>
+                          <option value="unseen">⏳ Unseen</option>
+                          <option value="seen">👁️ Seen</option>
+                          <option value="replied">💬 Replied</option>
+                          <option value="rejected">❌ Rejected</option>
+                        </select>
+                      ) : (
+                        <span className="text-zinc-600 text-xs">-</span>
                       )}
-                    </div>
-                  </td>
+                    </td>
 
-                  <td className="px-4 py-3.5">
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
-                        lead.killSwitchStatus === 'active'
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : lead.killSwitchStatus === 'booked_meeting'
-                          ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                          : lead.killSwitchStatus === 'not_interested'
-                          ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                          : 'bg-zinc-800 text-zinc-400'
-                      }`}
-                    >
-                      {lead.killSwitchStatus.replace('_', ' ')}
-                    </span>
-                  </td>
+                    <td className="px-4 py-3.5">
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+                          lead.killSwitchStatus === 'active'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : lead.killSwitchStatus === 'booked_meeting'
+                            ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                            : lead.killSwitchStatus === 'not_interested'
+                            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                            : 'bg-zinc-800 text-zinc-400'
+                        }`}
+                      >
+                        {lead.killSwitchStatus.replace('_', ' ')}
+                      </span>
+                    </td>
 
-                  <td className="px-4 py-3.5 text-right">
-                    <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        onClick={() => onScheduleMeeting(lead.id)}
-                        title="Schedule Intelligent Meeting"
-                        className="rounded-lg bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-300 p-1.5 transition-colors"
-                      >
-                        <Calendar className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => deleteLead(lead.id)}
-                        title="Delete Lead"
-                        className="rounded-lg text-zinc-500 hover:bg-rose-950/40 hover:text-rose-400 p-1.5 transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    <td className="px-4 py-3.5 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => onScheduleMeeting(lead.id)}
+                          title="Schedule Intelligent Meeting"
+                          className="rounded-lg bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-300 p-1.5 transition-colors"
+                        >
+                          <Calendar className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => deleteLead(lead.id)}
+                          title="Delete Lead"
+                          className="rounded-lg text-zinc-500 hover:bg-rose-950/40 hover:text-rose-400 p-1.5 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -343,48 +378,82 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                 </div>
 
                 <div className="space-y-2 flex-1 overflow-y-auto max-h-[600px]">
-                  {stageLeads.map((lead) => (
-                    <div
-                      key={lead.id}
-                      className="rounded-xl border border-zinc-800 bg-zinc-900/90 p-3 shadow space-y-2 hover:border-zinc-700 transition-all"
-                    >
-                      <div className="flex items-start justify-between">
-                        <span className="font-bold text-zinc-100 text-xs truncate max-w-[130px]">
-                          {lead.name}
-                        </span>
-                        <span className="text-sm">{lead.flagEmoji}</span>
-                      </div>
-                      {lead.company && (
-                        <p className="text-[11px] text-zinc-400 truncate">{lead.company}</p>
-                      )}
-                      {lead.niche && (
-                        <div className="pt-0.5">
-                          <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-semibold text-emerald-400">
-                            {lead.niche}
+                  {stageLeads.map((lead) => {
+                    const currentStage = stages.find(
+                      (s) => s.leadId === lead.id && s.stageNumber === lead.currentStage
+                    );
+                    return (
+                      <div
+                        key={lead.id}
+                        className="rounded-xl border border-zinc-800 bg-zinc-900/90 p-3 shadow space-y-2 hover:border-zinc-700 transition-all"
+                      >
+                        <div className="flex items-start justify-between">
+                          <span className="font-bold text-zinc-100 text-xs truncate max-w-[130px]">
+                            {lead.name}
                           </span>
+                          <span className="text-sm">{lead.flagEmoji}</span>
                         </div>
-                      )}
-                      <PhoneBadge
-                        phone={lead.phoneRaw}
-                        sanitizedPhone={lead.phoneSanitized}
-                        flagEmoji={lead.flagEmoji}
-                        isoCode={lead.isoCode}
-                        className="text-[10px] py-0.5 px-1.5"
-                      />
+                        {lead.company && (
+                          <p className="text-[11px] text-zinc-400 truncate">{lead.company}</p>
+                        )}
+                        {lead.niche && (
+                          <div className="pt-0.5">
+                            <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-semibold text-emerald-400">
+                              {lead.niche}
+                            </span>
+                          </div>
+                        )}
+                        <PhoneBadge
+                          phone={lead.phoneRaw}
+                          sanitizedPhone={lead.phoneSanitized}
+                          flagEmoji={lead.flagEmoji}
+                          isoCode={lead.isoCode}
+                          className="text-[10px] py-0.5 px-1.5"
+                        />
 
-                      {lead.killSwitchStatus === 'active' && lead.currentStage < 5 && (
-                        <button
-                          type="button"
-                          onClick={() => handleMessageSent(lead)}
-                          title={`Click to mark message as sent and automatically advance lead to Follow-up ${lead.currentStage + 1}`}
-                          className="w-full mt-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold py-1.5 px-2 transition-all active:scale-95 shadow-md shadow-emerald-950/40 cursor-pointer"
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5 text-white" />
-                          <span>Message Sent → FU {lead.currentStage + 1}</span>
-                        </button>
-                      )}
-                    </div>
-                  ))}
+                        {currentStage && (
+                          <div className="flex items-center justify-between gap-1 pt-1.5 border-t border-zinc-800/60">
+                            <span className="text-[10px] text-zinc-400 font-semibold">Status:</span>
+                            <select
+                              value={currentStage.viewStatus || 'unseen'}
+                              onChange={(e) =>
+                                setStageViewStatus(
+                                  currentStage.id,
+                                  e.target.value as StageViewStatus
+                                )
+                              }
+                              className={`rounded-lg px-2 py-0.5 text-[10px] font-bold border transition-all cursor-pointer ${
+                                currentStage.viewStatus === 'replied'
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                                  : currentStage.viewStatus === 'seen'
+                                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'
+                                  : currentStage.viewStatus === 'rejected'
+                                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                                  : 'bg-zinc-800 text-zinc-300 border-zinc-700'
+                              }`}
+                            >
+                              <option value="unseen">⏳ Unseen</option>
+                              <option value="seen">👁️ Seen</option>
+                              <option value="replied">💬 Replied</option>
+                              <option value="rejected">❌ Rejected</option>
+                            </select>
+                          </div>
+                        )}
+
+                        {lead.killSwitchStatus === 'active' && lead.currentStage < 5 && (
+                          <button
+                            type="button"
+                            onClick={() => handleMessageSent(lead)}
+                            title={`Click to mark message as sent and automatically advance lead to Follow-up ${lead.currentStage + 1}`}
+                            className="w-full mt-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold py-1.5 px-2 transition-all active:scale-95 shadow-md shadow-emerald-950/40 cursor-pointer"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                            <span>Message Sent → FU {lead.currentStage + 1}</span>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );

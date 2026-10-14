@@ -13,6 +13,7 @@ import {
   LeadResponseStatus,
   Niche,
   CRMTab,
+  StageViewStatus,
 } from '@/types/crm';
 import { getInitialSeedData, DEFAULT_NICHES } from './seed-data';
 import { addDays, CADENCE_INTERVAL_DAYS, getTodayISO, STAGE_TITLES } from './date-utils';
@@ -76,6 +77,7 @@ interface CRMState {
   sendAndAutoAdvance: (stageId: string, customMessage?: string) => { whatsappUrl: string; nextStageCreated?: CadenceStage };
   markSentAndAdvance: (stageId: string) => void;
   advanceLeadStage: (leadId: string) => void;
+  setStageViewStatus: (stageId: string, status: StageViewStatus) => void;
   updateStage: (stageId: string, updates: Partial<CadenceStage>) => void;
 
   // Meeting Actions
@@ -538,6 +540,29 @@ export const useCRMStore = create<CRMState>()(
             }));
           }
         }
+      },
+
+      setStageViewStatus: (stageId, status) => {
+        const state = get();
+        const stage = state.stages.find((s) => s.id === stageId);
+        if (!stage) return;
+
+        set((s) => ({
+          stages: s.stages.map((st) =>
+            st.id === stageId ? { ...st, viewStatus: status } : st
+          ),
+          leads: s.leads.map((ld) => {
+            if (ld.id === stage.leadId) {
+              if (status === 'rejected') {
+                return { ...ld, responseStatus: 'not_interested' };
+              }
+              if (status === 'replied') {
+                return { ...ld, responseStatus: 'interested' };
+              }
+            }
+            return ld;
+          }),
+        }));
       },
 
       updateStage: (stageId, updates) => {

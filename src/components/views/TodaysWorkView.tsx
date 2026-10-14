@@ -46,6 +46,7 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   const searchQuery = useCRMStore((s) => s.searchQuery);
   const sendAndAutoAdvance = useCRMStore((s) => s.sendAndAutoAdvance);
   const markSentAndAdvance = useCRMStore((s) => s.markSentAndAdvance);
+  const setStageViewStatus = useCRMStore((s) => s.setStageViewStatus);
   const setKillSwitch = useCRMStore((s) => s.setKillSwitch);
   const toggleTask = useCRMStore((s) => s.toggleTask);
 
@@ -396,6 +397,70 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                             {lead.niche}
                           </span>
                         )}
+                      </div>
+                    </div>
+
+                    {/* Message Engagement Status Switcher */}
+                    <div className="flex items-center justify-between flex-wrap gap-2 pt-2.5 border-t border-zinc-800/80">
+                      <span className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">
+                        Message Status:
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {/* Unseen / Sent */}
+                        <button
+                          type="button"
+                          onClick={() => setStageViewStatus(stage.id, 'unseen')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                            stage.viewStatus === 'unseen' || stage.viewStatus === 'unchecked'
+                              ? 'bg-zinc-800 border-zinc-600 text-zinc-200 ring-1 ring-zinc-500/30'
+                              : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-500 hover:text-zinc-300'
+                          }`}
+                          title="Message sent but not opened / unseen"
+                        >
+                          ⏳ Unseen
+                        </button>
+
+                        {/* Seen */}
+                        <button
+                          type="button"
+                          onClick={() => setStageViewStatus(stage.id, 'seen')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                            stage.viewStatus === 'seen'
+                              ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300 ring-1 ring-cyan-500/40'
+                              : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-500 hover:text-cyan-300'
+                          }`}
+                          title="Message read / double blue tick"
+                        >
+                          👁️ Seen
+                        </button>
+
+                        {/* Replied / Knock */}
+                        <button
+                          type="button"
+                          onClick={() => setStageViewStatus(stage.id, 'replied')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                            stage.viewStatus === 'replied'
+                              ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 ring-1 ring-emerald-500/40'
+                              : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-500 hover:text-emerald-300'
+                          }`}
+                          title="Client responded / knocked back"
+                        >
+                          💬 Replied
+                        </button>
+
+                        {/* Rejected */}
+                        <button
+                          type="button"
+                          onClick={() => setStageViewStatus(stage.id, 'rejected')}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                            stage.viewStatus === 'rejected'
+                              ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 ring-1 ring-rose-500/40'
+                              : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-500 hover:text-rose-300'
+                          }`}
+                          title="Client declined / rejected"
+                        >
+                          ❌ Rejected
+                        </button>
                       </div>
                     </div>
                   </div>

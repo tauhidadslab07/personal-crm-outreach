@@ -10,7 +10,7 @@ export type CountryInfo = {
 
 export type CadenceStageNumber = 0 | 1 | 2 | 3 | 4 | 5;
 
-export type StageViewStatus = 'unchecked' | 'seen' | 'replied';
+export type StageViewStatus = 'unseen' | 'seen' | 'replied' | 'rejected' | 'unchecked';
 
 export type CadenceStage = {
   id: string;
