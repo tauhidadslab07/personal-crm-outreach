@@ -91,6 +91,7 @@ interface CRMState {
   markSentAndAdvance: (stageId: string) => void;
   advanceLeadStage: (leadId: string) => void;
   setStageViewStatus: (stageId: string, status: StageViewStatus) => void;
+  resumeCadence: (leadId: string) => void;
   updateStage: (stageId: string, updates: Partial<CadenceStage>) => void;
 
   // Meeting Actions
@@ -649,7 +650,47 @@ export const useCRMStore = create<CRMState>()(
         const state = get();
         const stage = state.stages.find((s) => s.id === stageId);
         if (!stage) return;
+        const today = getTodayISO();
 
+        if (status === 'replied') {
+          // Auto-Cadence Freeze on Reply:
+          // 1. Mark stage as replied
+          // 2. Set lead as interested, isCadencePaused = true
+          // 3. Auto-snooze next upcoming unsent stage for this lead by +7 days
+          // 4. Record timestamped note
+          const snoozedDate = addDays(today, 7);
+          const pauseNote = `[${today}] 💬 Client Replied & Engaged! Cadence auto-paused and snoozed (+7d to ${snoozedDate}) to protect 1-on-1 WhatsApp chat.`;
+
+          set((s) => ({
+            stages: s.stages.map((st) => {
+              if (st.id === stageId) {
+                return { ...st, viewStatus: 'replied' };
+              }
+              // If there's an unsent stage for this lead, auto-snooze it so it won't trigger generic follow-ups
+              if (st.leadId === stage.leadId && !st.isSent) {
+                return { ...st, scheduledDate: snoozedDate };
+              }
+              return st;
+            }),
+            leads: s.leads.map((ld) => {
+              if (ld.id === stage.leadId) {
+                const existingNotes = ld.notes ? `${ld.notes}\n${pauseNote}` : pauseNote;
+                return {
+                  ...ld,
+                  responseStatus: 'interested',
+                  isCadencePaused: true,
+                  cadencePauseReason: 'Client Replied / In Active 1-on-1 Conversation',
+                  notes: existingNotes,
+                  updatedAt: today,
+                };
+              }
+              return ld;
+            }),
+          }));
+          return;
+        }
+
+        // Other statuses (seen, unseen, rejected)
         set((s) => ({
           stages: s.stages.map((st) =>
             st.id === stageId ? { ...st, viewStatus: status } : st
@@ -657,13 +698,35 @@ export const useCRMStore = create<CRMState>()(
           leads: s.leads.map((ld) => {
             if (ld.id === stage.leadId) {
               if (status === 'rejected') {
-                return { ...ld, responseStatus: 'not_interested' };
-              }
-              if (status === 'replied') {
-                return { ...ld, responseStatus: 'interested' };
+                return { ...ld, responseStatus: 'not_interested', updatedAt: today };
               }
             }
             return ld;
+          }),
+        }));
+      },
+
+      resumeCadence: (leadId) => {
+        const today = getTodayISO();
+        const resumeNote = `[${today}] ▶️ Cadence Resumed. Restored to today's active outreach queue.`;
+
+        set((s) => ({
+          leads: s.leads.map((ld) =>
+            ld.id === leadId
+              ? {
+                  ...ld,
+                  isCadencePaused: false,
+                  cadencePauseReason: undefined,
+                  notes: ld.notes ? `${ld.notes}\n${resumeNote}` : resumeNote,
+                  updatedAt: today,
+                }
+              : ld
+          ),
+          stages: s.stages.map((st) => {
+            if (st.leadId === leadId && !st.isSent) {
+              return { ...st, scheduledDate: today };
+            }
+            return st;
           }),
         }));
       },

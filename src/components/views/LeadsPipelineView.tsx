@@ -388,7 +388,9 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                               setStageViewStatus(targetStage.id, newStatus);
                               const stageLabel = STAGE_TITLES[targetStage.stageNumber];
                               setToastMessage(
-                                `✓ "${lead.name}"'s ${stageLabel} marked as "${newStatus.toUpperCase()}".`
+                                newStatus === 'replied'
+                                  ? `💬 Client Replied! "${lead.name}" cadence auto-paused & snoozed (+7d).`
+                                  : `✓ "${lead.name}"'s ${stageLabel} marked as "${newStatus.toUpperCase()}".`
                               );
                               setTimeout(() => setToastMessage(null), 3500);
                             }}
@@ -407,11 +409,18 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                             <option value="replied">💬 Replied</option>
                             <option value="rejected">❌ Rejected</option>
                           </select>
-                          <span className="text-[10px] text-zinc-400 font-medium whitespace-nowrap">
-                            {lead.currentStage > 0
-                              ? `Last Msg (${STAGE_TITLES[targetStage.stageNumber]})`
-                              : 'Initial Outreach'}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] text-zinc-400 font-medium whitespace-nowrap">
+                              {lead.currentStage > 0
+                                ? `Last Msg (${STAGE_TITLES[targetStage.stageNumber]})`
+                                : 'Initial Outreach'}
+                            </span>
+                            {lead.isCadencePaused && (
+                              <span className="inline-flex items-center text-[9px] text-teal-300 font-bold bg-teal-500/15 border border-teal-500/30 px-1.5 py-0.2 rounded">
+                                💬 Paused
+                              </span>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <span className="text-zinc-600 text-xs">-</span>
@@ -658,7 +667,9 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                                   setStageViewStatus(targetStage.id, newStatus);
                                   const stageLabel = STAGE_TITLES[targetStage.stageNumber];
                                   setToastMessage(
-                                    `✓ "${lead.name}"'s ${stageLabel} marked as "${newStatus.toUpperCase()}".`
+                                    newStatus === 'replied'
+                                      ? `💬 Client Replied! "${lead.name}" cadence auto-paused & snoozed (+7d).`
+                                      : `✓ "${lead.name}"'s ${stageLabel} marked as "${newStatus.toUpperCase()}".`
                                   );
                                   setTimeout(() => setToastMessage(null), 3500);
                                 }}
@@ -681,16 +692,22 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                           </div>
                         )}
 
-                        {lead.killSwitchStatus === 'active' && lead.currentStage < 5 && (
-                          <button
-                            type="button"
-                            onClick={() => handleMessageSent(lead)}
-                            title={`Click to mark message as sent and automatically advance lead to Follow-up ${lead.currentStage + 1}`}
-                            className="w-full mt-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold py-1.5 px-2 transition-all active:scale-95 shadow-md shadow-emerald-950/40 cursor-pointer"
-                          >
-                            <CheckCircle2 className="h-3.5 w-3.5 text-white" />
-                            <span>Message Sent → FU {lead.currentStage + 1}</span>
-                          </button>
+                        {lead.isCadencePaused ? (
+                          <div className="w-full mt-2 p-1.5 rounded-lg bg-teal-950/40 border border-teal-500/30 text-teal-300 text-[10px] font-bold text-center flex items-center justify-center gap-1">
+                            <span>💬 Client Engaged (Cadence Paused)</span>
+                          </div>
+                        ) : (
+                          lead.killSwitchStatus === 'active' && lead.currentStage < 5 && (
+                            <button
+                              type="button"
+                              onClick={() => handleMessageSent(lead)}
+                              title={`Click to mark message as sent and automatically advance lead to Follow-up ${lead.currentStage + 1}`}
+                              className="w-full mt-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold py-1.5 px-2 transition-all active:scale-95 shadow-md shadow-emerald-950/40 cursor-pointer"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                              <span>Message Sent → FU {lead.currentStage + 1}</span>
+                            </button>
+                          )
                         )}
 
                         {/* Card Footer: Objections, Snooze & Delete */}

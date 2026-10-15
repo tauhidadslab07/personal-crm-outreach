@@ -69,11 +69,12 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   const setKillSwitch = useCRMStore((s) => s.setKillSwitch);
   const toggleTask = useCRMStore((s) => s.toggleTask);
   const setLeadNote = useCRMStore((s) => s.setLeadNote);
+  const resumeCadence = useCRMStore((s) => s.resumeCadence);
   const senderProfiles = useCRMStore((s) => s.senderProfiles);
   const activeSenderProfileId = useCRMStore((s) => s.activeSenderProfileId);
   const setActiveSenderProfile = useCRMStore((s) => s.setActiveSenderProfile);
 
-  const [activeBucket, setActiveBucket] = useState<'all' | CadenceStageNumber>('all');
+  const [activeBucket, setActiveBucket] = useState<'all' | 'engaged' | CadenceStageNumber>('all');
   const [warmthFilter, setWarmthFilter] = useState<'all' | 'hot' | 'warm' | 'cold'>('all');
   const [editingNoteLeadId, setEditingNoteLeadId] = useState<string | null>(null);
   const [tempNoteText, setTempNoteText] = useState<string>('');
@@ -154,9 +155,26 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
     }
   }, [overdueStages.length]);
 
-  // Bucketed & Warmth filtered stages
-  const filteredStages = stagesDueTodayOrOverdue.filter((s) => {
-    if (activeBucket !== 'all' && s.stageNumber !== activeBucket) return false;
+  // Bucketed & Warmth filtered stages:
+  // Find all stages where lead is actively engaged (replied / cadence paused)
+  const engagedStages = relevantStages.filter((s) => {
+    const lead = activeLeadMap.get(s.leadId);
+    if (!lead || lead.killSwitchStatus !== 'active') return false;
+    return (
+      lead.isCadencePaused ||
+      s.viewStatus === 'replied' ||
+      stages.some((st) => st.leadId === lead.id && st.viewStatus === 'replied')
+    );
+  });
+
+  const baseStagesToFilter =
+    activeBucket === 'engaged'
+      ? engagedStages
+      : stagesDueTodayOrOverdue.filter(
+          (s) => activeBucket === 'all' || s.stageNumber === activeBucket
+        );
+
+  const filteredStages = baseStagesToFilter.filter((s) => {
     if (warmthFilter !== 'all') {
       const lead = activeLeadMap.get(s.leadId);
       if (!lead) return false;
@@ -456,6 +474,28 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
             >
               All Due ({stagesDueTodayOrOverdue.length})
             </button>
+
+            {/* Engaged / Replied Bucket */}
+            <button
+              onClick={() => setActiveBucket('engaged')}
+              className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                activeBucket === 'engaged'
+                  ? 'bg-teal-600 text-white shadow-md shadow-teal-950/40 ring-1 ring-teal-400/40'
+                  : 'bg-zinc-900 text-teal-400 hover:text-teal-300 hover:bg-zinc-800 border border-teal-500/20'
+              }`}
+              title="Prospects who replied / in active 1-on-1 conversations (Cadence auto-paused)"
+            >
+              <span>💬 Engaged</span>
+              {engagedStages.length > 0 && (
+                <span
+                  className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                    activeBucket === 'engaged' ? 'bg-white/20 text-white' : 'bg-teal-950 text-teal-300 border border-teal-500/30'
+                  }`}
+                >
+                  {engagedStages.length}
+                </span>
+              )}
+            </button>
             {([0, 1, 2, 3, 4, 5] as CadenceStageNumber[]).map((stgNum) => {
               const count = stagesDueTodayOrOverdue.filter((s) => s.stageNumber === stgNum).length;
               return (
@@ -528,18 +568,70 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
               const lead = activeLeadMap.get(stage.leadId)!;
               const isLate = isOverdue(stage.scheduledDate);
               const lateDays = Math.abs(getDaysDifferenceFromToday(stage.scheduledDate));
+              const isEngaged = Boolean(
+                lead?.isCadencePaused ||
+                stage.viewStatus === 'replied' ||
+                stages.some((st) => st.leadId === lead?.id && st.viewStatus === 'replied')
+              );
 
               return (
                 <div
                   key={stage.id}
                   className={`relative flex flex-col justify-between rounded-2xl border p-4 sm:p-5 shadow-xl transition-all ${
-                    isLate
+                    isEngaged
+                      ? 'border-teal-500/60 bg-gradient-to-br from-teal-950/30 via-zinc-900/90 to-zinc-950 shadow-teal-950/30 ring-1 ring-teal-500/40'
+                      : isLate
                       ? 'border-rose-500/40 bg-gradient-to-br from-rose-950/20 via-zinc-900/90 to-zinc-900 shadow-rose-950/20'
                       : 'border-zinc-800 bg-gradient-to-br from-zinc-900/90 via-zinc-900/70 to-zinc-950 hover:border-zinc-700'
                   }`}
                 >
                   {/* Top Bar: Lead details & badges */}
                   <div className="space-y-3">
+                    {/* Client Engaged & Auto-Cadence Paused Highlight Banner */}
+                    {isEngaged && (
+                      <div className="rounded-xl border border-teal-500/40 bg-teal-950/40 p-2.5 space-y-2 animate-in fade-in">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-teal-400" />
+                            </span>
+                            <span className="text-xs font-bold text-teal-300">
+                              💬 Client Engaged & Talking!
+                            </span>
+                          </div>
+                          <span className="rounded-full bg-teal-500/20 text-teal-300 text-[10px] font-bold px-2 py-0.5 border border-teal-500/30">
+                            Cadence Auto-Snoozed (+7d)
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-zinc-300 leading-snug">
+                          Automated follow-up cadence is auto-paused so you can chat 1-on-1 freely without sending canned scripts.
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-teal-500/20">
+                          <button
+                            type="button"
+                            onClick={() => onScheduleMeetingForLead(lead.id)}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 text-xs font-bold transition-all shadow-sm cursor-pointer"
+                          >
+                            <Calendar className="h-3 w-3" />
+                            <span>Book Meeting</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              resumeCadence(lead.id);
+                              setToastMessage(`✓ Automated cadence resumed for "${lead.name}".`);
+                              setTimeout(() => setToastMessage(null), 3000);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-2 py-1 text-xs font-semibold transition-all cursor-pointer"
+                            title="Resume automated follow-ups if client went cold"
+                          >
+                            <span>▶️ Resume Cadence</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -821,16 +913,16 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                               onClick={() => {
                                 setStageViewStatus(targetStage.id, 'replied');
                                 setToastMessage(
-                                  `✓ ${lead.name}'s ${STAGE_TITLES[targetStage.stageNumber]} marked as REPLIED.`
+                                  `💬 Client Replied! "${lead.name}" cadence auto-paused & snoozed (+7d) to protect 1-on-1 chat.`
                                 );
-                                setTimeout(() => setToastMessage(null), 3000);
+                                setTimeout(() => setToastMessage(null), 4000);
                               }}
                               className={`px-2 py-1.5 sm:px-2.5 sm:py-1 rounded-lg text-[10px] sm:text-[11px] font-bold border transition-all cursor-pointer text-center flex items-center justify-center ${
                                 targetStage.viewStatus === 'replied'
                                   ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 ring-1 ring-emerald-500/40'
                                   : 'bg-zinc-900/60 border-zinc-800/80 text-zinc-500 hover:text-emerald-300'
                               }`}
-                              title="Client responded / knocked back"
+                              title="Client responded / knocked back — Cadence auto-pauses & snoozes +7d"
                             >
                               💬 Replied
                             </button>
@@ -880,35 +972,62 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                       </select>
                     </div>
 
-                    {/* Actions: Message Sent & WhatsApp Launch */}
+                    {/* Actions: Message Sent & WhatsApp Launch or Engaged 1-on-1 Mode */}
                     <div className="flex items-center gap-2 w-full sm:w-auto">
-                      {/* Secondary WhatsApp Launch Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleSendAndAdvance(stage, lead.name)}
-                        title="Open WhatsApp chat with prefilled template"
-                        className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/90 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 hover:text-white px-3 py-2.5 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
-                      >
-                        <Send className="h-3.5 w-3.5 text-emerald-400" />
-                        <span>WhatsApp</span>
-                      </button>
+                      {isEngaged ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const cleanUrl = buildWhatsAppUrl(lead.phoneSanitized, '');
+                              window.open(cleanUrl, '_blank', 'noopener,noreferrer');
+                            }}
+                            title="Open WhatsApp chat for manual 1-on-1 messaging without canned script"
+                            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl border border-teal-500/40 bg-teal-500/20 hover:bg-teal-500/30 text-xs font-bold text-teal-300 px-3 py-2.5 transition-all cursor-pointer whitespace-nowrap"
+                          >
+                            <MessageCircle className="h-3.5 w-3.5 text-teal-400" />
+                            <span>1-on-1 Chat</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onScheduleMeetingForLead(lead.id)}
+                            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 py-2.5 text-xs font-bold text-white shadow-lg transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                          >
+                            <Calendar className="h-3.5 w-3.5 text-white" />
+                            <span>Book Meeting</span>
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {/* Secondary WhatsApp Launch Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleSendAndAdvance(stage, lead.name)}
+                            title="Open WhatsApp chat with prefilled template"
+                            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-800/90 hover:bg-zinc-700 text-xs font-semibold text-zinc-300 hover:text-white px-3 py-2.5 transition-all active:scale-95 cursor-pointer whitespace-nowrap"
+                          >
+                            <Send className="h-3.5 w-3.5 text-emerald-400" />
+                            <span>WhatsApp</span>
+                          </button>
 
-                      {/* Primary "Message Sent" Auto-Advance Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleDirectMessageSent(stage, lead.name)}
-                        title={`Click to mark message as sent and automatically advance lead to ${
-                          stage.stageNumber < 5 ? `Follow-up ${stage.stageNumber + 1}` : 'Completed'
-                        }`}
-                        className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 sm:px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-950/60 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-900/80 transition-all active:scale-95 cursor-pointer ring-1 ring-emerald-400/30 whitespace-nowrap"
-                      >
-                        <CheckCircle2 className="h-4 w-4 text-emerald-100 shrink-0" />
-                        <span>
-                          {stage.stageNumber < 5
-                            ? `Sent → FU ${stage.stageNumber + 1}`
-                            : 'Sent & Complete'}
-                        </span>
-                      </button>
+                          {/* Primary "Message Sent" Auto-Advance Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleDirectMessageSent(stage, lead.name)}
+                            title={`Click to mark message as sent and automatically advance lead to ${
+                              stage.stageNumber < 5 ? `Follow-up ${stage.stageNumber + 1}` : 'Completed'
+                            }`}
+                            className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-3.5 sm:px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-950/60 hover:from-emerald-500 hover:to-teal-500 hover:shadow-emerald-900/80 transition-all active:scale-95 cursor-pointer ring-1 ring-emerald-400/30 whitespace-nowrap"
+                          >
+                            <CheckCircle2 className="h-4 w-4 text-emerald-100 shrink-0" />
+                            <span>
+                              {stage.stageNumber < 5
+                                ? `Sent → FU ${stage.stageNumber + 1}`
+                                : 'Sent & Complete'}
+                            </span>
+                          </button>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

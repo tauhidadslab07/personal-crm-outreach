@@ -48,6 +48,8 @@ export type Lead = {
   killSwitchStatus: KillSwitchStatus;
   killSwitchReason?: string;
   responseStatus?: LeadResponseStatus;
+  isCadencePaused?: boolean;
+  cadencePauseReason?: string;
   notes?: string;
   value?: number; // Potential deal size in USD
   tags: string[];
