@@ -304,12 +304,183 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
 
       {/* Render Mode: Table */}
       {viewMode === 'table' ? (
-        <div className="space-y-1.5">
-          <div className="md:hidden text-[11px] text-zinc-500 px-1 flex items-center justify-between">
-            <span>👈 Swipe table horizontally to see all columns 👉</span>
-            <span className="font-semibold text-emerald-400">{filteredLeads.length} leads</span>
+        <div className="space-y-3">
+          {/* Mobile Card List (sm:hidden) */}
+          <div className="sm:hidden space-y-3">
+            {filteredLeads.map((lead) => {
+              const prevStageNum = lead.currentStage > 0 ? lead.currentStage - 1 : 0;
+              const targetStage =
+                lead.currentStage > 0
+                  ? stages.find((s) => s.leadId === lead.id && s.stageNumber === prevStageNum) ||
+                    stages.find((s) => s.leadId === lead.id && s.stageNumber === lead.currentStage)
+                  : stages.find((s) => s.leadId === lead.id && s.stageNumber === 0);
+
+              const isDormant =
+                (lead.killSwitchStatus === 'completed' || lead.killSwitchStatus === 'not_interested') &&
+                getDaysAgo(lead.updatedAt || lead.createdAt) >= 25;
+
+              return (
+                <div
+                  key={lead.id}
+                  className="rounded-2xl border border-zinc-800 bg-zinc-900/80 p-4 shadow-xl space-y-3 backdrop-blur"
+                >
+                  {/* Card Header: Lead Name, Country, Time, Status */}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <h4 className="font-bold text-zinc-100 text-sm truncate">
+                          {lead.name}
+                        </h4>
+                        <CountryBadge country={lead} size="sm" showName={false} />
+                        <ProspectTimeBadge isoCode={lead.isoCode} />
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap text-xs text-zinc-400">
+                        {lead.company && <span className="font-medium text-zinc-300">{lead.company}</span>}
+                        {lead.niche && (
+                          <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                            {lead.niche}
+                          </span>
+                        )}
+                        <LeadWarmthBadge lead={lead} stages={stages} />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${
+                          lead.killSwitchStatus === 'active'
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            : lead.killSwitchStatus === 'booked_meeting'
+                            ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                            : lead.killSwitchStatus === 'not_interested'
+                            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                            : 'bg-zinc-800 text-zinc-400'
+                        }`}
+                      >
+                        {lead.killSwitchStatus.replace('_', ' ')}
+                      </span>
+                      {isDormant && (
+                        <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[9px] font-bold text-amber-300">
+                          ⏳ {getDaysAgo(lead.updatedAt || lead.createdAt)}d Dormant
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Phone & Stage Row */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-800/60">
+                    <PhoneBadge
+                      phone={lead.phoneRaw}
+                      sanitizedPhone={lead.phoneSanitized}
+                      flagEmoji={lead.flagEmoji}
+                      isoCode={lead.isoCode}
+                      prefilledText={targetStage?.templateScript || 'Hello!'}
+                    />
+
+                    <span className="rounded-lg bg-zinc-800/80 px-2.5 py-1 text-[10px] font-bold text-zinc-300 border border-zinc-700/60">
+                      {STAGE_TITLES[lead.currentStage]}
+                    </span>
+                  </div>
+
+                  {/* Notes if available */}
+                  {lead.notes && (
+                    <p className="text-[11px] text-zinc-400 bg-zinc-950/60 p-2 rounded-xl border border-zinc-800/60 italic flex items-center gap-1.5">
+                      <FileEdit className="h-3 w-3 text-emerald-400 shrink-0" />
+                      <span className="line-clamp-2">{lead.notes}</span>
+                    </p>
+                  )}
+
+                  {/* Engagement Status Pill Row */}
+                  {targetStage && (
+                    <div className="grid grid-cols-4 gap-1 pt-2 border-t border-zinc-800/60">
+                      {(['unseen', 'seen', 'replied', 'rejected'] as StageViewStatus[]).map((st) => (
+                        <button
+                          key={st}
+                          type="button"
+                          onClick={() => {
+                            setStageViewStatus(targetStage.id, st);
+                            setToastMessage(`✓ ${lead.name} marked as ${st.toUpperCase()}.`);
+                            setTimeout(() => setToastMessage(null), 2500);
+                          }}
+                          className={`py-1.5 text-[10px] font-bold rounded-lg border text-center transition-all cursor-pointer ${
+                            targetStage.viewStatus === st
+                              ? st === 'replied'
+                                ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+                                : st === 'seen'
+                                ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
+                                : st === 'rejected'
+                                ? 'bg-rose-500/20 border-rose-500/50 text-rose-300'
+                                : 'bg-zinc-800 border-zinc-600 text-zinc-200'
+                              : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:text-zinc-300'
+                          }`}
+                        >
+                          {st === 'unseen' ? '⏳ Unseen' : st === 'seen' ? '👁️ Seen' : st === 'replied' ? '💬 Reply' : '❌ Reject'}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Card Actions Footer */}
+                  <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedObjectionLead(lead)}
+                        className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-1 text-[10px] font-bold text-amber-300 transition-all cursor-pointer shadow-sm"
+                        title="Instant Objections"
+                      >
+                        <ShieldAlert className="h-3 w-3 text-amber-400" />
+                        <span>Objection</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const stage = stages.find((s) => s.leadId === lead.id && s.stageNumber === lead.currentStage);
+                          if (stage) setSnoozeTarget({ lead, stage });
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 px-2 py-1 text-[10px] font-bold text-purple-300 transition-all cursor-pointer shadow-sm"
+                        title="Snooze"
+                      >
+                        <Clock className="h-3 w-3 text-purple-400" />
+                        <span>Snooze</span>
+                      </button>
+                      {isDormant && (
+                        <button
+                          type="button"
+                          onClick={() => handleRevive(lead)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-1 text-[10px] font-bold text-amber-300 transition-all cursor-pointer shadow-sm"
+                          title="Revive Dormant Lead"
+                        >
+                          <RotateCcw className="h-3 w-3 text-amber-400" />
+                          <span>Revive</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => onScheduleMeeting(lead.id)}
+                        title="Schedule Meeting"
+                        className="rounded-lg bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-300 p-2 transition-colors cursor-pointer"
+                      >
+                        <Calendar className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => deleteLead(lead.id)}
+                        title="Delete Lead"
+                        className="rounded-lg text-zinc-500 hover:bg-rose-950/40 hover:text-rose-400 p-2 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900/60 shadow-xl backdrop-blur">
+
+          {/* Desktop Table View (hidden sm:block) */}
+          <div className="hidden sm:block overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-900/60 shadow-xl backdrop-blur">
             <table className="w-full text-left text-xs min-w-[720px]">
               <thead className="border-b border-zinc-800 bg-zinc-900/90 text-[11px] font-bold uppercase tracking-wider text-zinc-400">
                 <tr>

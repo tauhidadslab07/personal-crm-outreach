@@ -46,30 +46,32 @@ export const ObjectionBusterModal: React.FC<ObjectionBusterModalProps> = ({
     >
       <div className="space-y-4">
         {/* Tab Switcher */}
-        <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
+        <div className="flex items-center gap-2 border-b border-zinc-800 pb-2 overflow-x-auto scrollbar-none">
           <button
             type="button"
             onClick={() => setActiveTab('objections')}
-            className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 rounded-xl px-3 sm:px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === 'objections'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
             }`}
           >
             <ShieldAlert className="h-4 w-4" />
-            <span>Instant Objection Buster (6 Playbooks)</span>
+            <span className="sm:hidden">Objections (6)</span>
+            <span className="hidden sm:inline">Instant Objection Buster (6 Playbooks)</span>
           </button>
           <button
             type="button"
             onClick={() => setActiveTab('voicenotes')}
-            className={`flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 sm:gap-2 rounded-xl px-3 sm:px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
               activeTab === 'voicenotes'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
             }`}
           >
             <Mic className="h-4 w-4 text-cyan-400" />
-            <span>30-Sec Voice Note Scripts (3x Reply Rate)</span>
+            <span className="sm:hidden">🎙️ Voice Notes (3)</span>
+            <span className="hidden sm:inline">30-Sec Voice Note Scripts (3x Reply Rate)</span>
           </button>
         </div>
 

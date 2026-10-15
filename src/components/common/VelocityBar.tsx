@@ -127,7 +127,7 @@ export const VelocityBar: React.FC<VelocityBarProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-3 self-end sm:self-auto font-mono">
+          <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto font-mono mt-1 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-800/60">
             {/* Goal setter */}
             <div className="flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-800/60 px-2 py-1 rounded-lg border border-zinc-700/50">
               <Target className="h-3.5 w-3.5 text-teal-400" />
