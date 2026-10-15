@@ -40,6 +40,7 @@ interface CRMState {
   setSearchQuery: (q: string) => void;
   setSelectedNicheFilter: (niche: string) => void;
   resetToSampleData: () => void;
+  restoreDatabase: (backupData: any) => void;
   setDailyGoal: (goal: number) => void;
 
   // Niche Actions
@@ -117,6 +118,24 @@ export const useCRMStore = create<CRMState>()(
 
       resetToSampleData: () => {
         set({ ...getInitialSeedData(), searchQuery: '', selectedNicheFilter: 'all', dailyGoal: 20, streakDays: 4 });
+      },
+
+      restoreDatabase: (backupData: any) => {
+        if (!backupData || !backupData.data) return;
+        const d = backupData.data;
+        set({
+          leads: Array.isArray(d.leads) ? d.leads : [],
+          stages: Array.isArray(d.stages) ? d.stages : [],
+          meetings: Array.isArray(d.meetings) ? d.meetings : [],
+          projects: Array.isArray(d.projects) ? d.projects : [],
+          tasks: Array.isArray(d.tasks) ? d.tasks : [],
+          niches: Array.isArray(d.niches) && d.niches.length > 0 ? d.niches : DEFAULT_NICHES,
+          templates: Array.isArray(d.templates) && d.templates.length > 0 ? d.templates : getInitialSeedData().templates,
+          dailyGoal: typeof d.dailyGoal === 'number' ? d.dailyGoal : 20,
+          streakDays: typeof d.streakDays === 'number' ? d.streakDays : 4,
+          searchQuery: '',
+          selectedNicheFilter: 'all',
+        });
       },
 
       addNiche: (input) => {

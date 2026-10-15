@@ -6,6 +6,10 @@ import { Lead, CadenceStageNumber, KillSwitchStatus, StageViewStatus } from '@/t
 import { STAGE_TITLES, getTodayISO, addDays } from '@/lib/date-utils';
 import { CountryBadge } from '../common/CountryBadge';
 import { PhoneBadge } from '../common/PhoneBadge';
+import { ProspectTimeBadge } from '../common/ProspectTimeBadge';
+import { LeadWarmthBadge } from '../common/LeadWarmthBadge';
+import { calculateLeadWarmth } from '@/lib/warmth';
+import { ObjectionBusterModal } from '../modals/ObjectionBusterModal';
 import {
   Users,
   Search,
@@ -19,6 +23,8 @@ import {
   Download,
   CheckCircle2,
   FileEdit,
+  ShieldAlert,
+  Flame,
 } from 'lucide-react';
 import { exportLeadsToCSV } from '@/lib/csv-export';
 
@@ -48,10 +54,12 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterCountry, setFilterCountry] = useState<string>('all');
   const [filterDate, setFilterDate] = useState<string>('all');
+  const [filterWarmth, setFilterWarmth] = useState<string>('all');
   const [mobileKanbanStage, setMobileKanbanStage] = useState<number | 'all'>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [editingNoteLeadId, setEditingNoteLeadId] = useState<string | null>(null);
   const [tempNoteText, setTempNoteText] = useState<string>('');
+  const [selectedObjectionLead, setSelectedObjectionLead] = useState<Lead | null>(null);
 
   const handleMessageSent = (lead: Lead) => {
     advanceLeadStage(lead.id);
@@ -113,9 +121,15 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         if (filterDate === '30d' && createdDate < addDays(today, -30)) return false;
       }
 
+      // Warmth Priority filter
+      if (filterWarmth !== 'all') {
+        const warmth = calculateLeadWarmth(lead, stages);
+        if (warmth.level !== filterWarmth) return false;
+      }
+
       return true;
     });
-  }, [leads, searchQuery, filterStage, filterStatus, filterCountry, selectedNicheFilter, filterDate]);
+  }, [leads, stages, searchQuery, filterStage, filterStatus, filterCountry, selectedNicheFilter, filterDate, filterWarmth]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
@@ -252,6 +266,18 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
           <option value="15d">📅 Last 15 Days</option>
           <option value="30d">📅 Last 30 Days</option>
         </select>
+
+        {/* Warmth Priority Filter */}
+        <select
+          value={filterWarmth}
+          onChange={(e) => setFilterWarmth(e.target.value)}
+          className="flex-1 min-w-[125px] sm:flex-initial rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none font-bold"
+        >
+          <option value="all">🔥 All Warmth</option>
+          <option value="hot">🔥 Hot Leads</option>
+          <option value="warm">⚡ Warm Leads</option>
+          <option value="cold">❄️ Cold Leads</option>
+        </select>
       </div>
 
       {/* Render Mode: Table */}
@@ -311,7 +337,13 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                     </td>
 
                     <td className="px-4 py-3.5">
-                      <CountryBadge country={lead} size="sm" showName={true} />
+                      <div className="flex flex-col gap-1.5">
+                        <CountryBadge country={lead} size="sm" showName={true} />
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <ProspectTimeBadge isoCode={lead.isoCode} />
+                          <LeadWarmthBadge lead={lead} stages={stages} />
+                        </div>
+                      </div>
                     </td>
 
                     <td className="px-4 py-3.5">
@@ -400,6 +432,14 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
 
                     <td className="px-4 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedObjectionLead(lead)}
+                          title="Instant Objection Responses & Voice Note Scripts"
+                          className="rounded-lg bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 p-1.5 transition-colors cursor-pointer"
+                        >
+                          <ShieldAlert className="h-4 w-4" />
+                        </button>
                         <button
                           onClick={() => onScheduleMeeting(lead.id)}
                           title="Schedule Intelligent Meeting"
@@ -491,15 +531,21 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                         key={lead.id}
                         className="rounded-xl border border-zinc-800 bg-zinc-900/90 p-3 shadow space-y-2 hover:border-zinc-700 transition-all"
                       >
-                        <div className="flex items-start justify-between">
-                          <span className="font-bold text-zinc-100 text-xs truncate max-w-[130px]">
+                        <div className="flex items-start justify-between gap-1">
+                          <span className="font-bold text-zinc-100 text-xs truncate max-w-[120px]">
                             {lead.name}
                           </span>
-                          <span className="text-sm">{lead.flagEmoji}</span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <LeadWarmthBadge lead={lead} stages={stages} showText={false} />
+                            <span className="text-sm">{lead.flagEmoji}</span>
+                          </div>
                         </div>
-                        {lead.company && (
-                          <p className="text-[11px] text-zinc-400 truncate">{lead.company}</p>
-                        )}
+                        <div className="flex items-center justify-between gap-1 flex-wrap">
+                          {lead.company && (
+                            <p className="text-[11px] text-zinc-400 truncate max-w-[110px]">{lead.company}</p>
+                          )}
+                          <ProspectTimeBadge isoCode={lead.isoCode} className="text-[9px] py-0 px-1" />
+                        </div>
                         {lead.niche && (
                           <div className="pt-0.5 flex items-center justify-between gap-1 flex-wrap">
                             <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-semibold text-emerald-400">
@@ -631,6 +677,28 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                             <span>Message Sent → FU {lead.currentStage + 1}</span>
                           </button>
                         )}
+
+                        {/* Card Footer: Objections & Delete */}
+                        <div className="pt-2 flex items-center justify-between gap-1 border-t border-zinc-800/60 mt-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedObjectionLead(lead)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 text-[9px] font-bold text-amber-300 transition-all cursor-pointer shadow-sm"
+                            title="Instant objection responses & 30-sec voice note scripts"
+                          >
+                            <ShieldAlert className="h-2.5 w-2.5 text-amber-400" />
+                            <span>Objection & Voice</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => deleteLead(lead.id)}
+                            title="Delete Lead"
+                            className="text-zinc-600 hover:text-rose-400 p-1 transition-colors cursor-pointer rounded"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -641,6 +709,13 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         </div>
       </div>
     )}
+
+      {/* Instant Objection Playbook & Voice Note Scripts Modal */}
+      <ObjectionBusterModal
+        isOpen={Boolean(selectedObjectionLead)}
+        onClose={() => setSelectedObjectionLead(null)}
+        lead={selectedObjectionLead}
+      />
     </div>
   );
 };

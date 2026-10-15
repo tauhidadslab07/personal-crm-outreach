@@ -14,15 +14,17 @@ import {
   Flame,
   Layers,
   UserCog,
+  Database,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth-store';
 
 interface SidebarProps {
   onOpenTemplates: () => void;
+  onOpenBackup?: () => void;
   onOpenUserManagement?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ onOpenTemplates, onOpenUserManagement }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ onOpenTemplates, onOpenBackup, onOpenUserManagement }) => {
   const activeTab = useCRMStore((s) => s.activeTab);
   const setActiveTab = useCRMStore((s) => s.setActiveTab);
   const stages = useCRMStore((s) => s.stages);
@@ -154,6 +156,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenTemplates, onOpenUserMan
             <FileCode className="h-4 w-4 text-teal-400" />
             <span>Cadence Scripts</span>
           </button>
+
+          {onOpenBackup && (
+            <button
+              onClick={onOpenBackup}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/60 transition-colors cursor-pointer"
+            >
+              <Database className="h-4 w-4 text-amber-400" />
+              <span>Backup & Restore</span>
+            </button>
+          )}
 
           {currentUser?.role === 'admin' && onOpenUserManagement && (
             <button

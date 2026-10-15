@@ -5,8 +5,13 @@ import { useCRMStore } from '@/lib/store';
 import { VelocityBar } from '../common/VelocityBar';
 import { PhoneBadge } from '../common/PhoneBadge';
 import { CountryBadge } from '../common/CountryBadge';
+import { ProspectTimeBadge } from '../common/ProspectTimeBadge';
+import { LeadWarmthBadge } from '../common/LeadWarmthBadge';
+import { calculateLeadWarmth } from '@/lib/warmth';
+import { ObjectionBusterModal } from '../modals/ObjectionBusterModal';
+import { SCRIPT_VARIANTS_MAP, interpolateTemplate, buildWhatsAppUrl } from '@/lib/whatsapp';
 import { getTodayISO, isOverdue, getDaysDifferenceFromToday, formatTime12h, STAGE_TITLES } from '@/lib/date-utils';
-import { CadenceStage, CadenceStageNumber, KillSwitchStatus } from '@/types/crm';
+import { Lead, CadenceStage, CadenceStageNumber, KillSwitchStatus } from '@/types/crm';
 import {
   Send,
   Calendar,
@@ -27,6 +32,12 @@ import {
   Volume2,
   Bell,
   FileEdit,
+  ShieldAlert,
+  Mic,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  Copy,
 } from 'lucide-react';
 import { buildGoogleCalendarUrl, downloadICSFile } from '@/lib/calendar';
 
@@ -58,8 +69,12 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   const setLeadNote = useCRMStore((s) => s.setLeadNote);
 
   const [activeBucket, setActiveBucket] = useState<'all' | CadenceStageNumber>('all');
+  const [warmthFilter, setWarmthFilter] = useState<'all' | 'hot' | 'warm' | 'cold'>('all');
   const [editingNoteLeadId, setEditingNoteLeadId] = useState<string | null>(null);
   const [tempNoteText, setTempNoteText] = useState<string>('');
+  const [selectedObjectionLead, setSelectedObjectionLead] = useState<Lead | null>(null);
+  const [expandedVariantLeadId, setExpandedVariantLeadId] = useState<string | null>(null);
+  const [selectedCustomScripts, setSelectedCustomScripts] = useState<Record<string, string>>({});
   const today = getTodayISO();
 
   const playOverdueChime = () => {
@@ -133,10 +148,16 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
     }
   }, [overdueStages.length]);
 
-  // Bucketed stages
+  // Bucketed & Warmth filtered stages
   const filteredStages = stagesDueTodayOrOverdue.filter((s) => {
-    if (activeBucket === 'all') return true;
-    return s.stageNumber === activeBucket;
+    if (activeBucket !== 'all' && s.stageNumber !== activeBucket) return false;
+    if (warmthFilter !== 'all') {
+      const lead = activeLeadMap.get(s.leadId);
+      if (!lead) return false;
+      const warmth = calculateLeadWarmth(lead, stages);
+      if (warmth.level !== warmthFilter) return false;
+    }
+    return true;
   });
 
   // Today's meetings
@@ -162,8 +183,9 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   };
 
   // Handle "Send on WhatsApp & Complete Stage"
-  const handleSendAndAdvance = (stage: CadenceStage, leadName: string) => {
-    const { whatsappUrl } = sendAndAutoAdvance(stage.id, stage.templateScript);
+  const handleSendAndAdvance = (stage: CadenceStage, leadName: string, customMessage?: string) => {
+    const messageToSend = customMessage || selectedCustomScripts[stage.leadId] || stage.templateScript;
+    const { whatsappUrl } = sendAndAutoAdvance(stage.id, messageToSend);
     const nextLabel =
       stage.stageNumber < 5 ? `Follow-up ${stage.stageNumber + 1}` : 'Completed';
     setToastMessage(`✓ Message Sent on WhatsApp! "${leadName}" moved to ${nextLabel}.`);
@@ -424,6 +446,33 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
           </div>
         </div>
 
+        {/* Warmth Priority Quick Filter */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider shrink-0 flex items-center gap-1.5">
+            <Flame className="h-3.5 w-3.5 text-amber-400" />
+            Priority:
+          </span>
+          {[
+            { id: 'all', label: 'All Leads' },
+            { id: 'hot', label: '🔥 Hot Priority', activeColor: 'bg-rose-500 text-white' },
+            { id: 'warm', label: '⚡ Warm Touchpoints', activeColor: 'bg-cyan-500 text-white' },
+            { id: 'cold', label: '❄️ Cold Outreach', activeColor: 'bg-zinc-700 text-zinc-100' },
+          ].map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setWarmthFilter(item.id as any)}
+              className={`rounded-xl px-3 py-1 text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                warmthFilter === item.id
+                  ? `${item.activeColor || 'bg-amber-500 text-zinc-950'} shadow-md`
+                  : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+
         {/* Lead Cards List */}
         {filteredStages.length === 0 ? (
           <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/30 p-12 text-center space-y-3">
@@ -454,25 +503,29 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                   {/* Top Bar: Lead details & badges */}
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
                           <h4 className="font-bold text-zinc-100 text-base truncate">
                             {lead.name}
                           </h4>
                           <CountryBadge country={lead} size="sm" showName={true} />
+                          <ProspectTimeBadge isoCode={lead.isoCode} showDetails />
                         </div>
                         {lead.company && (
-                          <p className="text-xs text-zinc-400 font-medium truncate mt-0.5">
+                          <p className="text-xs text-zinc-400 font-medium truncate">
                             {lead.company}
                           </p>
                         )}
                       </div>
 
-                      {/* Stage & Overdue indicator */}
+                      {/* Stage, Warmth & Overdue indicator */}
                       <div className="flex flex-col items-end gap-1 shrink-0">
-                        <span className="rounded-lg bg-zinc-800 px-2 py-0.5 text-[10px] font-bold text-zinc-300 border border-zinc-700/60 uppercase">
-                          {STAGE_TITLES[stage.stageNumber]}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <LeadWarmthBadge lead={lead} stages={stages} />
+                          <span className="rounded-lg bg-zinc-800 px-2 py-0.5 text-[10px] font-bold text-zinc-300 border border-zinc-700/60 uppercase">
+                            {STAGE_TITLES[stage.stageNumber]}
+                          </span>
+                        </div>
                         {isLate && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-400 border border-rose-500/40 animate-pulse">
                             <AlertCircle className="h-3 w-3" />
@@ -482,14 +535,14 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Phone & Niche row */}
+                    {/* Phone & Tools row */}
                     <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                       <PhoneBadge
                         phone={lead.phoneRaw}
                         sanitizedPhone={lead.phoneSanitized}
                         flagEmoji={lead.flagEmoji}
                         isoCode={lead.isoCode}
-                        prefilledText={stage.templateScript}
+                        prefilledText={selectedCustomScripts[lead.id] || stage.templateScript}
                       />
                       <div className="flex items-center gap-1.5">
                         {lead.niche && (
@@ -497,6 +550,16 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                             {lead.niche}
                           </span>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => setSelectedObjectionLead(lead)}
+                          className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-300 transition-all cursor-pointer shadow-sm"
+                          title="Instant objection responses & 30-sec voice note scripts"
+                        >
+                          <ShieldAlert className="h-3 w-3 text-amber-400" />
+                          <span>Objections</span>
+                          <span className="text-[9px] text-cyan-400 font-bold">• 🎙️ Voice</span>
+                        </button>
                       </div>
                     </div>
 
@@ -551,6 +614,92 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                           <span className="text-[10px] text-zinc-500 group-hover:text-emerald-400 font-semibold shrink-0">
                             {lead.notes ? 'Edit' : '+ Note'}
                           </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Dynamic WhatsApp Script Variant Selector & Live Preview */}
+                    <div className="pt-2 border-t border-zinc-800/60 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedVariantLeadId(
+                              expandedVariantLeadId === lead.id ? null : lead.id
+                            )
+                          }
+                          className="text-[11px] font-bold text-teal-400 hover:text-teal-300 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          <span>
+                            {expandedVariantLeadId === lead.id
+                              ? 'Hide Message Script'
+                              : 'Script Variant (A/B/C)'}
+                          </span>
+                          {expandedVariantLeadId === lead.id ? (
+                            <ChevronUp className="h-3 w-3" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const text =
+                              selectedCustomScripts[lead.id] || stage.templateScript;
+                            navigator.clipboard.writeText(text);
+                            setToastMessage(`✓ Message script copied for "${lead.name}".`);
+                            setTimeout(() => setToastMessage(null), 2500);
+                          }}
+                          className="text-[10px] text-zinc-400 hover:text-zinc-200 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Copy className="h-2.5 w-2.5" />
+                          <span>Copy Script</span>
+                        </button>
+                      </div>
+
+                      {expandedVariantLeadId === lead.id && (
+                        <div className="rounded-xl border border-zinc-800 bg-zinc-950/80 p-2.5 space-y-2 animate-in fade-in">
+                          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                            <span className="text-[10px] font-bold text-zinc-500 uppercase">
+                              Angle:
+                            </span>
+                            {(SCRIPT_VARIANTS_MAP[stage.stageNumber] || []).map((variant, idx) => {
+                              const personalized = interpolateTemplate(variant.content, {
+                                name: lead.name,
+                                company: lead.company,
+                              });
+                              const isSelected =
+                                (selectedCustomScripts[lead.id] || stage.templateScript) ===
+                                personalized;
+
+                              return (
+                                <button
+                                  key={variant.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCustomScripts((prev) => ({
+                                      ...prev,
+                                      [lead.id]: personalized,
+                                    }));
+                                  }}
+                                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition-all cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-teal-600 text-white shadow-sm'
+                                      : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
+                                  }`}
+                                  title={variant.label}
+                                >
+                                  {`Var ${String.fromCharCode(65 + idx)}: ${variant.label.split(':')[1]?.trim() || variant.label}`}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="text-[11px] text-zinc-300 leading-relaxed font-sans bg-zinc-900/60 p-2 rounded-lg border border-zinc-800/60 italic">
+                            &ldquo;
+                            {selectedCustomScripts[lead.id] || stage.templateScript}
+                            &rdquo;
+                          </p>
                         </div>
                       )}
                     </div>
@@ -823,6 +972,13 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
           )}
         </div>
       </section>
+
+      {/* Instant Objection Playbook & Voice Note Scripts Modal */}
+      <ObjectionBusterModal
+        isOpen={Boolean(selectedObjectionLead)}
+        onClose={() => setSelectedObjectionLead(null)}
+        lead={selectedObjectionLead}
+      />
     </div>
   );
 };

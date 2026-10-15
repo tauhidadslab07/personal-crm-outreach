@@ -29,6 +29,7 @@ import { OutcomeModal } from '@/components/modals/OutcomeModal';
 import { ProjectModal } from '@/components/modals/ProjectModal';
 import { TaskModal } from '@/components/modals/TaskModal';
 import { TemplateEditorModal } from '@/components/modals/TemplateEditorModal';
+import { BackupRestoreModal } from '@/components/modals/BackupRestoreModal';
 import { Meeting, Project } from '@/types/crm';
 
 function CRMContent() {
@@ -53,6 +54,7 @@ function CRMContent() {
 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
+  const [isBackupOpen, setIsBackupOpen] = useState(false);
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -105,6 +107,7 @@ function CRMContent() {
         }}
         onOpenBulkImport={() => setIsBulkImportOpen(true)}
         onOpenTemplates={() => setIsTemplatesOpen(true)}
+        onOpenBackup={() => setIsBackupOpen(true)}
         onOpenUserManagement={() => setIsUserManagementOpen(true)}
         searchInputRef={searchInputRef}
       />
@@ -114,6 +117,7 @@ function CRMContent() {
         {/* Desktop Collapsible Sidebar */}
         <Sidebar
           onOpenTemplates={() => setIsTemplatesOpen(true)}
+          onOpenBackup={() => setIsBackupOpen(true)}
           onOpenUserManagement={() => setIsUserManagementOpen(true)}
         />
 
@@ -226,6 +230,11 @@ function CRMContent() {
       <TemplateEditorModal
         isOpen={isTemplatesOpen}
         onClose={() => setIsTemplatesOpen(false)}
+      />
+
+      <BackupRestoreModal
+        isOpen={isBackupOpen}
+        onClose={() => setIsBackupOpen(false)}
       />
     </div>
   );

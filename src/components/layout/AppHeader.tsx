@@ -26,6 +26,7 @@ interface AppHeaderProps {
   onOpenNewLead: () => void;
   onOpenBulkImport: () => void;
   onOpenTemplates: () => void;
+  onOpenBackup?: () => void;
   onOpenUserManagement?: () => void;
   searchInputRef: React.RefObject<HTMLInputElement | null>;
 }
@@ -34,6 +35,7 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onOpenNewLead,
   onOpenBulkImport,
   onOpenTemplates,
+  onOpenBackup,
   onOpenUserManagement,
   searchInputRef,
 }) => {
@@ -132,11 +134,23 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <button
           onClick={onOpenTemplates}
           title="Cadence WhatsApp Scripts"
-          className="hidden md:inline-flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all"
+          className="hidden md:inline-flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all cursor-pointer"
         >
           <FileCode className="h-3.5 w-3.5 text-teal-400" />
           <span>Scripts</span>
         </button>
+
+        {/* Database Backup & Disaster Recovery button */}
+        {onOpenBackup && (
+          <button
+            onClick={onOpenBackup}
+            title="Database Backup & Cloud Disaster Recovery"
+            className="hidden lg:inline-flex items-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-900/80 px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all cursor-pointer"
+          >
+            <Database className="h-3.5 w-3.5 text-amber-400" />
+            <span>Backup</span>
+          </button>
+        )}
 
         {/* Bulk Import button (desktop only) */}
         <button
@@ -294,6 +308,19 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                   <Download className="h-4 w-4 text-emerald-400" />
                   <span>Export Leads to CSV</span>
                 </button>
+
+                {onOpenBackup && (
+                  <button
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      onOpenBackup();
+                    }}
+                    className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl border border-zinc-800 bg-zinc-900 hover:bg-zinc-800 text-zinc-200 text-xs font-semibold transition-all active:scale-95"
+                  >
+                    <Database className="h-4 w-4 text-amber-400" />
+                    <span>Database Backup & Restore</span>
+                  </button>
+                )}
 
                 {currentUser?.role === 'admin' && onOpenUserManagement && (
                   <button
