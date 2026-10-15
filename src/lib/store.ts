@@ -18,7 +18,7 @@ import {
 } from '@/types/crm';
 import { getInitialSeedData, DEFAULT_NICHES, DEFAULT_SENDER_PROFILES } from './seed-data';
 import { addDays, CADENCE_INTERVAL_DAYS, getTodayISO, STAGE_TITLES } from './date-utils';
-import { buildWhatsAppUrl, getPrefilledMessageForStage } from './whatsapp';
+import { buildWhatsAppUrl, getPrefilledMessageForStage, WIN_BACK_TEMPLATES, interpolateTemplate } from './whatsapp';
 import { parsePhoneAndDetectCountry, sanitizePhoneForWhatsApp } from './phone';
 import { syncLeadToSupabase } from './supabase-sync';
 
@@ -92,6 +92,7 @@ interface CRMState {
   advanceLeadStage: (leadId: string) => void;
   setStageViewStatus: (stageId: string, status: StageViewStatus) => void;
   resumeCadence: (leadId: string) => void;
+  reviveLead: (leadId: string, customMessage?: string) => { whatsappUrl: string };
   updateStage: (stageId: string, updates: Partial<CadenceStage>) => void;
 
   // Meeting Actions
@@ -729,6 +730,76 @@ export const useCRMStore = create<CRMState>()(
             return st;
           }),
         }));
+      },
+
+      reviveLead: (leadId, customMessage) => {
+        const today = getTodayISO();
+        const state = get();
+        const lead = state.leads.find((l) => l.id === leadId);
+        if (!lead) return { whatsappUrl: '' };
+
+        const messageToSend =
+          customMessage ||
+          interpolateTemplate(WIN_BACK_TEMPLATES[0].content, {
+            name: lead.name,
+            company: lead.company,
+          });
+
+        const revivalNote = `[${today}] ♻️ Lead Revived via 30-Day Win-Back Engine. Reset to Stage 0 with Re-engagement Hook.`;
+
+        // Check if an existing stage 0 exists
+        const existingStage0 = state.stages.find(
+          (s) => s.leadId === leadId && s.stageNumber === 0
+        );
+
+        let updatedStages: CadenceStage[];
+        if (existingStage0) {
+          updatedStages = state.stages.map((st) => {
+            if (st.id === existingStage0.id) {
+              return {
+                ...st,
+                scheduledDate: today,
+                sentDate: undefined,
+                isSent: false,
+                viewStatus: 'unseen' as StageViewStatus,
+                templateScript: messageToSend,
+              };
+            }
+            return st;
+          });
+        } else {
+          const newStage0: CadenceStage = {
+            id: `stg-${lead.id}-0-revived`,
+            leadId: lead.id,
+            stageNumber: 0,
+            title: 'Initial Outreach (Win-Back)',
+            scheduledDate: today,
+            isSent: false,
+            viewStatus: 'unseen',
+            templateScript: messageToSend,
+          };
+          updatedStages = [newStage0, ...state.stages];
+        }
+
+        set((s) => ({
+          stages: updatedStages,
+          leads: s.leads.map((ld) =>
+            ld.id === leadId
+              ? {
+                  ...ld,
+                  killSwitchStatus: 'active',
+                  killSwitchReason: undefined,
+                  currentStage: 0,
+                  isCadencePaused: false,
+                  notes: ld.notes ? `${ld.notes}\n${revivalNote}` : revivalNote,
+                  updatedAt: today,
+                }
+              : ld
+          ),
+        }));
+
+        const whatsappUrl = buildWhatsAppUrl(lead.phoneSanitized, messageToSend);
+        return { whatsappUrl };
       },
 
       updateStage: (stageId, updates) => {

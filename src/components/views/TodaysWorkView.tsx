@@ -10,8 +10,8 @@ import { LeadWarmthBadge } from '../common/LeadWarmthBadge';
 import { calculateLeadWarmth } from '@/lib/warmth';
 import { ObjectionBusterModal } from '../modals/ObjectionBusterModal';
 import { SnoozeModal } from '../modals/SnoozeModal';
-import { SCRIPT_VARIANTS_MAP, interpolateTemplate, buildWhatsAppUrl } from '@/lib/whatsapp';
-import { getTodayISO, isOverdue, getDaysDifferenceFromToday, formatTime12h, STAGE_TITLES } from '@/lib/date-utils';
+import { SCRIPT_VARIANTS_MAP, interpolateTemplate, buildWhatsAppUrl, WIN_BACK_TEMPLATES } from '@/lib/whatsapp';
+import { getTodayISO, isOverdue, getDaysDifferenceFromToday, formatTime12h, STAGE_TITLES, getDaysAgo } from '@/lib/date-utils';
 import { Lead, CadenceStage, CadenceStageNumber, KillSwitchStatus } from '@/types/crm';
 import {
   Send,
@@ -40,6 +40,7 @@ import {
   Sparkles,
   Copy,
   Smartphone,
+  RotateCcw,
 } from 'lucide-react';
 import { buildGoogleCalendarUrl, downloadICSFile } from '@/lib/calendar';
 
@@ -70,11 +71,12 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   const toggleTask = useCRMStore((s) => s.toggleTask);
   const setLeadNote = useCRMStore((s) => s.setLeadNote);
   const resumeCadence = useCRMStore((s) => s.resumeCadence);
+  const reviveLead = useCRMStore((s) => s.reviveLead);
   const senderProfiles = useCRMStore((s) => s.senderProfiles);
   const activeSenderProfileId = useCRMStore((s) => s.activeSenderProfileId);
   const setActiveSenderProfile = useCRMStore((s) => s.setActiveSenderProfile);
 
-  const [activeBucket, setActiveBucket] = useState<'all' | 'engaged' | CadenceStageNumber>('all');
+  const [activeBucket, setActiveBucket] = useState<'all' | 'engaged' | 'revival' | CadenceStageNumber>('all');
   const [warmthFilter, setWarmthFilter] = useState<'all' | 'hot' | 'warm' | 'cold'>('all');
   const [editingNoteLeadId, setEditingNoteLeadId] = useState<string | null>(null);
   const [tempNoteText, setTempNoteText] = useState<string>('');
@@ -82,6 +84,7 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   const [snoozeTarget, setSnoozeTarget] = useState<{ lead: Lead; stage: CadenceStage } | null>(null);
   const [expandedVariantLeadId, setExpandedVariantLeadId] = useState<string | null>(null);
   const [selectedCustomScripts, setSelectedCustomScripts] = useState<Record<string, string>>({});
+  const [selectedRevivalAngle, setSelectedRevivalAngle] = useState<Record<string, string>>({});
   const today = getTodayISO();
 
   const playOverdueChime = () => {
@@ -165,6 +168,33 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
       s.viewStatus === 'replied' ||
       stages.some((st) => st.leadId === lead.id && st.viewStatus === 'replied')
     );
+  });
+
+  // 30-Day Win-Back Engine: Find all dormant / ghosted leads (25-30d+ since last touch)
+  const revivableLeads = leads.filter((lead) => {
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const matchName = lead.name.toLowerCase().includes(q);
+      const matchPhone = lead.phoneRaw.includes(q);
+      const matchCompany = lead.company?.toLowerCase().includes(q);
+      if (!matchName && !matchPhone && !matchCompany) return false;
+    }
+    if (selectedNicheFilter !== 'all' && lead.niche !== selectedNicheFilter) {
+      return false;
+    }
+
+    const daysInactive = getDaysAgo(lead.updatedAt || lead.createdAt);
+    const isInactiveEnough = daysInactive >= 25;
+
+    const isDormantStatus =
+      lead.killSwitchStatus === 'completed' ||
+      lead.killSwitchStatus === 'not_interested';
+
+    const hasLostMeeting = meetings.some(
+      (m) => m.leadId === lead.id && m.outcome === 'lost'
+    );
+
+    return (isDormantStatus || hasLostMeeting) && isInactiveEnough;
   });
 
   const baseStagesToFilter =
@@ -496,6 +526,28 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                 </span>
               )}
             </button>
+
+            {/* 30-Day Win-Back Revival Bucket */}
+            <button
+              onClick={() => setActiveBucket('revival')}
+              className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                activeBucket === 'revival'
+                  ? 'bg-amber-600 text-white shadow-md shadow-amber-950/40 ring-1 ring-amber-400/40'
+                  : 'bg-zinc-900 text-amber-400 hover:text-amber-300 hover:bg-zinc-800 border border-amber-500/20'
+              }`}
+              title="30-Day Win-Back Engine: Re-engage ghosted & lost leads with fresh case studies"
+            >
+              <span>♻️ Win-Back</span>
+              {revivableLeads.length > 0 && (
+                <span
+                  className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                    activeBucket === 'revival' ? 'bg-white/20 text-white' : 'bg-amber-950 text-amber-300 border border-amber-500/30'
+                  }`}
+                >
+                  {revivableLeads.length}
+                </span>
+              )}
+            </button>
             {([0, 1, 2, 3, 4, 5] as CadenceStageNumber[]).map((stgNum) => {
               const count = stagesDueTodayOrOverdue.filter((s) => s.stageNumber === stgNum).length;
               return (
@@ -552,7 +604,196 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
         </div>
 
         {/* Lead Cards List */}
-        {filteredStages.length === 0 ? (
+        {activeBucket === 'revival' ? (
+          <div className="space-y-4">
+            {/* Win-Back Explanation Banner */}
+            <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-950/40 via-zinc-900/90 to-amber-950/30 p-4 shadow-xl space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                    <RotateCcw className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-2">
+                      30-Day Ghosted & Lost Lead Win-Back Engine
+                      <span className="rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 border border-amber-500/30">
+                        {revivableLeads.length} Dormant Leads
+                      </span>
+                    </h3>
+                    <p className="text-xs text-zinc-400">
+                      Prospects who completed Breakup Stage 5 or dropped off 25-30+ days ago. Revive them with fresh case studies and teardowns to close extra deals without scraping new leads.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {revivableLeads.length === 0 ? (
+              <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/30 p-12 text-center space-y-3">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                <h4 className="font-bold text-zinc-200 text-base">No Dormant Leads Right Now!</h4>
+                <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+                  Leads will automatically appear here once they have been dormant for 25-30+ days after cadence completion or lost meetings.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {revivableLeads.map((lead) => {
+                  const daysInactive = getDaysAgo(lead.updatedAt || lead.createdAt);
+                  const activeAngleId = selectedRevivalAngle[lead.id] || WIN_BACK_TEMPLATES[0].id;
+                  const activeTemplate =
+                    WIN_BACK_TEMPLATES.find((t) => t.id === activeAngleId) || WIN_BACK_TEMPLATES[0];
+                  const personalizedMessage = interpolateTemplate(activeTemplate.content, {
+                    name: lead.name,
+                    company: lead.company,
+                  });
+
+                  return (
+                    <div
+                      key={lead.id}
+                      className="relative flex flex-col justify-between rounded-2xl border border-amber-500/40 bg-gradient-to-br from-amber-950/20 via-zinc-900/90 to-zinc-950 p-4 sm:p-5 shadow-xl hover:border-amber-500/60 transition-all space-y-3"
+                    >
+                      {/* Top Bar */}
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="font-bold text-zinc-100 text-base truncate">
+                                {lead.name}
+                              </h4>
+                              <CountryBadge country={lead} size="sm" showName={true} />
+                              <ProspectTimeBadge isoCode={lead.isoCode} showDetails />
+                            </div>
+                            {lead.company && (
+                              <p className="text-xs text-zinc-400 font-medium truncate">
+                                {lead.company}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col items-end gap-1 shrink-0">
+                            <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                              ⏳ {daysInactive}d Dormant
+                            </span>
+                            <span className="text-[10px] text-zinc-400">
+                              {lead.killSwitchStatus === 'completed'
+                                ? 'Stage 5 Completed'
+                                : lead.killSwitchReason || 'Lost Lead'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Phone & Niche */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <PhoneBadge
+                            phone={lead.phoneRaw}
+                            sanitizedPhone={lead.phoneSanitized}
+                            flagEmoji={lead.flagEmoji}
+                            isoCode={lead.isoCode}
+                            prefilledText={personalizedMessage}
+                          />
+                          {lead.niche && (
+                            <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-400">
+                              {lead.niche}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Win-Back Angle Selector */}
+                        <div className="pt-2 border-t border-zinc-800/80 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] uppercase font-bold text-amber-400 flex items-center gap-1">
+                              <Sparkles className="h-3 w-3" />
+                              Select Win-Back Hook:
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(personalizedMessage);
+                                setToastMessage(`✓ Win-back script copied for "${lead.name}".`);
+                                setTimeout(() => setToastMessage(null), 2500);
+                              }}
+                              className="text-[10px] text-zinc-400 hover:text-zinc-200 flex items-center gap-1 cursor-pointer"
+                            >
+                              <Copy className="h-2.5 w-2.5" />
+                              <span>Copy Script</span>
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                            {WIN_BACK_TEMPLATES.map((tmpl) => (
+                              <button
+                                key={tmpl.id}
+                                type="button"
+                                onClick={() =>
+                                  setSelectedRevivalAngle((prev) => ({
+                                    ...prev,
+                                    [lead.id]: tmpl.id,
+                                  }))
+                                }
+                                className={`px-2 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap transition-all cursor-pointer ${
+                                  activeAngleId === tmpl.id
+                                    ? 'bg-amber-600 text-white shadow-sm ring-1 ring-amber-400/40'
+                                    : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
+                                }`}
+                              >
+                                {tmpl.label.split(':')[1]?.trim() || tmpl.label}
+                              </button>
+                            ))}
+                          </div>
+
+                          <p className="text-[11px] text-zinc-300 leading-relaxed font-sans bg-zinc-950/80 p-2.5 rounded-xl border border-zinc-800 italic">
+                            &ldquo;{personalizedMessage}&rdquo;
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Bottom Action: Revive & Send on WhatsApp */}
+                      <div className="pt-3 border-t border-zinc-800 flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const dummyStage: CadenceStage = {
+                              id: `stg-${lead.id}-revive-snooze`,
+                              leadId: lead.id,
+                              stageNumber: 0,
+                              title: 'Initial Outreach',
+                              scheduledDate: today,
+                              isSent: false,
+                              viewStatus: 'unseen',
+                              templateScript: personalizedMessage,
+                            };
+                            setSnoozeTarget({ lead, stage: dummyStage });
+                          }}
+                          className="inline-flex items-center gap-1 rounded-xl border border-zinc-700 bg-zinc-800/80 hover:bg-zinc-700 px-3 py-2 text-xs font-semibold text-zinc-300 hover:text-white transition-all cursor-pointer"
+                        >
+                          <Clock className="h-3 w-3 text-zinc-400" />
+                          <span>Snooze +30d</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const { whatsappUrl } = reviveLead(lead.id, personalizedMessage);
+                            setToastMessage(`✓ "${lead.name}" revived into active pipeline Stage 0!`);
+                            setTimeout(() => setToastMessage(null), 3500);
+                            window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+                          }}
+                          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-amber-950/50 hover:from-amber-500 hover:to-emerald-500 transition-all active:scale-95 cursor-pointer ring-1 ring-amber-400/30"
+                        >
+                          <Send className="h-3.5 w-3.5 text-white" />
+                          <span>🚀 Revive & Send on WhatsApp</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : filteredStages.length === 0 ? (
           <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/30 p-12 text-center space-y-3">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
               <CheckCircle2 className="h-6 w-6" />

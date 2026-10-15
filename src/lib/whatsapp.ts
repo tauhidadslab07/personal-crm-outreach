@@ -198,3 +198,24 @@ export function getPrefilledMessageForStage(
     company: lead.company,
   });
 }
+
+/**
+ * 30-Day Win-Back Re-Engagement Templates for Lost / Ghosted Leads
+ */
+export const WIN_BACK_TEMPLATES: ScriptVariant[] = [
+  {
+    id: 'winback-case-study',
+    label: 'Angle 1: New Case Study Win',
+    content: "Hey {name}, was thinking about {company}. We recently rolled out a new client acquisition campaign in your niche that drove 18 booked meetings in 10 days. Put together a 2-minute breakdown — would you be open to checking it out?",
+  },
+  {
+    id: 'winback-growth-audit',
+    label: 'Angle 2: Free 3-Point Teardown',
+    content: "Hi {name}, hope things are going great at {company}! I put together a quick 3-point outreach audit for your team — zero pitch, just actionable ideas you can test internally. Mind if I drop the link here?",
+  },
+  {
+    id: 'winback-crm-cleanup',
+    label: 'Angle 3: Casual CRM Check-in',
+    content: "Hey {name}, cleaning up my CRM and saw we connected a while back. Are you still actively heading growth and new client hunting at {company}?",
+  },
+];

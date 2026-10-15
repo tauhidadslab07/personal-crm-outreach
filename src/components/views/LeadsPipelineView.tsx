@@ -3,7 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useCRMStore } from '@/lib/store';
 import { Lead, CadenceStageNumber, KillSwitchStatus, StageViewStatus } from '@/types/crm';
-import { STAGE_TITLES, getTodayISO, addDays } from '@/lib/date-utils';
+import { STAGE_TITLES, getTodayISO, addDays, getDaysAgo } from '@/lib/date-utils';
 import { CountryBadge } from '../common/CountryBadge';
 import { PhoneBadge } from '../common/PhoneBadge';
 import { ProspectTimeBadge } from '../common/ProspectTimeBadge';
@@ -28,6 +28,7 @@ import {
   ShieldAlert,
   Flame,
   Clock,
+  RotateCcw,
 } from 'lucide-react';
 import { exportLeadsToCSV } from '@/lib/csv-export';
 
@@ -46,6 +47,7 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   const deleteLead = useCRMStore((s) => s.deleteLead);
   const advanceLeadStage = useCRMStore((s) => s.advanceLeadStage);
   const setKillSwitch = useCRMStore((s) => s.setKillSwitch);
+  const reviveLead = useCRMStore((s) => s.reviveLead);
   const searchQuery = useCRMStore((s) => s.searchQuery);
   const niches = useCRMStore((s) => s.niches);
   const selectedNicheFilter = useCRMStore((s) => s.selectedNicheFilter);
@@ -72,6 +74,17 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
     setTimeout(() => {
       setToastMessage(null);
     }, 4000);
+  };
+
+  const handleRevive = (lead: Lead) => {
+    const { whatsappUrl } = reviveLead(lead.id);
+    setToastMessage(`✓ "${lead.name}" revived into active pipeline Stage 0!`);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4000);
+    if (whatsappUrl) {
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    }
   };
 
   // Extract unique countries
@@ -103,7 +116,11 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         return false;
       }
 
-      if (filterStatus !== 'all' && lead.killSwitchStatus !== filterStatus) {
+      if (filterStatus === 'revivable') {
+        const daysInactive = getDaysAgo(lead.updatedAt || lead.createdAt);
+        const isDormant = lead.killSwitchStatus === 'completed' || lead.killSwitchStatus === 'not_interested';
+        if (!isDormant || daysInactive < 25) return false;
+      } else if (filterStatus !== 'all' && lead.killSwitchStatus !== filterStatus) {
         return false;
       }
 
@@ -227,6 +244,7 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
           <option value="not_interested">Not Interested / Opt-Out</option>
           <option value="wrong_number">Wrong Number</option>
           <option value="completed">Completed Cadence</option>
+          <option value="revivable">♻️ Dormant / Revivable (25d+)</option>
         </select>
 
         {/* Country Filter */}
@@ -428,23 +446,40 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                     </td>
 
                     <td className="px-4 py-3.5">
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
-                          lead.killSwitchStatus === 'active'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : lead.killSwitchStatus === 'booked_meeting'
-                            ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
-                            : lead.killSwitchStatus === 'not_interested'
-                            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                            : 'bg-zinc-800 text-zinc-400'
-                        }`}
-                      >
-                        {lead.killSwitchStatus.replace('_', ' ')}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase ${
+                            lead.killSwitchStatus === 'active'
+                              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                              : lead.killSwitchStatus === 'booked_meeting'
+                              ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                              : lead.killSwitchStatus === 'not_interested'
+                              ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                              : 'bg-zinc-800 text-zinc-400'
+                          }`}
+                        >
+                          {lead.killSwitchStatus.replace('_', ' ')}
+                        </span>
+                        {((lead.killSwitchStatus === 'completed' || lead.killSwitchStatus === 'not_interested') && getDaysAgo(lead.updatedAt || lead.createdAt) >= 25) && (
+                          <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[9px] font-bold text-amber-300">
+                            ⏳ {getDaysAgo(lead.updatedAt || lead.createdAt)}d Dormant
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     <td className="px-4 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        {((lead.killSwitchStatus === 'completed' || lead.killSwitchStatus === 'not_interested') && getDaysAgo(lead.updatedAt || lead.createdAt) >= 25) && (
+                          <button
+                            type="button"
+                            onClick={() => handleRevive(lead)}
+                            title="Revive Dormant Lead (30-Day Win-Back Engine)"
+                            className="rounded-lg bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 p-1.5 transition-colors cursor-pointer"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={() => setSelectedObjectionLead(lead)}
@@ -710,6 +745,18 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                           )
                         )}
 
+                        {((lead.killSwitchStatus === 'completed' || lead.killSwitchStatus === 'not_interested') && getDaysAgo(lead.updatedAt || lead.createdAt) >= 25) && (
+                          <button
+                            type="button"
+                            onClick={() => handleRevive(lead)}
+                            title="Revive Dormant Lead (30-Day Win-Back Engine)"
+                            className="w-full mt-2 inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-amber-600 to-emerald-600 hover:from-amber-500 hover:to-emerald-500 text-white text-[11px] font-bold py-1.5 px-2 transition-all active:scale-95 shadow-md shadow-amber-950/40 cursor-pointer ring-1 ring-amber-400/30"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5 text-white" />
+                            <span>♻️ Revive (Win-Back)</span>
+                          </button>
+                        )}
+
                         {/* Card Footer: Objections, Snooze & Delete */}
                         <div className="pt-2 flex items-center justify-between gap-1 border-t border-zinc-800/60 mt-2">
                           <div className="flex items-center gap-1">
@@ -734,6 +781,17 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                               <Clock className="h-2.5 w-2.5 text-purple-400" />
                               <span>Snooze</span>
                             </button>
+                            {((lead.killSwitchStatus === 'completed' || lead.killSwitchStatus === 'not_interested') && getDaysAgo(lead.updatedAt || lead.createdAt) >= 25) && (
+                              <button
+                                type="button"
+                                onClick={() => handleRevive(lead)}
+                                className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-300 transition-all cursor-pointer shadow-sm"
+                                title="Revive Dormant Lead (30-Day Win-Back Engine)"
+                              >
+                                <RotateCcw className="h-2.5 w-2.5 text-amber-400" />
+                                <span>Revive</span>
+                              </button>
+                            )}
                           </div>
 
                           <button

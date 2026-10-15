@@ -123,3 +123,13 @@ export function formatTime12h(time24: string): string {
   const hour12 = h % 12 || 12;
   return `${hour12}:${String(m).padStart(2, '0')} ${ampm}`;
 }
+
+/**
+ * Calculate how many days ago a date string was. Returns 0 if today or future.
+ */
+export function getDaysAgo(dateString?: string): number {
+  if (!dateString) return 0;
+  const dateOnly = dateString.includes('T') ? dateString.split('T')[0] : dateString;
+  const diff = getDaysDifferenceFromToday(dateOnly);
+  return diff < 0 ? Math.abs(diff) : 0;
+}
