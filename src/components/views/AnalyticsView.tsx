@@ -32,6 +32,9 @@ import {
   Share2,
   Copy,
   CheckCircle2,
+  DollarSign,
+  Target,
+  Zap,
 } from 'lucide-react';
 import { getTodayISO, addDays } from '@/lib/date-utils';
 import { useAuthStore } from '@/lib/auth-store';
@@ -123,6 +126,46 @@ export const AnalyticsView: React.FC = () => {
     const pendingBalance = filteredProjects.reduce((sum, p) => sum + p.remainingBalance, 0);
     return { realizedCash, pendingBalance };
   }, [filteredProjects]);
+
+  // Unit Economics & Outreach ROI Calculations
+  const unitEconomics = useMemo(() => {
+    const totalOutreachSent = sentStagesInRange.length;
+    const realizedCash = financials.realizedCash;
+    const totalMeetings = filteredMeetings.length;
+    const closedWonMeetings = filteredMeetings.filter((m) => m.outcome === 'closed_won').length;
+
+    // Revenue per 100 WhatsApp Messages
+    const revenuePer100Messages =
+      totalOutreachSent > 0 ? Math.round((realizedCash / totalOutreachSent) * 100) : 0;
+
+    // Value generated per single WhatsApp click
+    const valuePerSingleMessage =
+      totalOutreachSent > 0 ? (realizedCash / totalOutreachSent).toFixed(2) : '0.00';
+
+    // Messages required to book 1 meeting
+    const messagesPerMeeting =
+      totalMeetings > 0 ? (totalOutreachSent / totalMeetings).toFixed(1) : 'N/A';
+
+    // Meeting to closed-won conversion rate
+    const meetingCloseRate =
+      totalMeetings > 0 ? Math.round((closedWonMeetings / totalMeetings) * 100) : 0;
+
+    // Average closed deal value
+    const avgDealValue =
+      closedWonMeetings > 0 ? Math.round(realizedCash / closedWonMeetings) : 0;
+
+    return {
+      totalOutreachSent,
+      realizedCash,
+      totalMeetings,
+      closedWonMeetings,
+      revenuePer100Messages,
+      valuePerSingleMessage,
+      messagesPerMeeting,
+      meetingCloseRate,
+      avgDealValue,
+    };
+  }, [sentStagesInRange, financials.realizedCash, filteredMeetings]);
 
   // Niche attribution
   const nicheData = useMemo(() => {
@@ -477,6 +520,89 @@ export const AnalyticsView: React.FC = () => {
             ${financials.pendingBalance.toLocaleString()}
           </div>
           <p className="text-[11px] text-amber-400/70 mt-0.5">Outstanding contract receivables</p>
+        </div>
+      </div>
+
+      {/* Outreach ROI & Unit Economics Engine */}
+      <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-zinc-900/95 via-emerald-950/20 to-zinc-950 p-5 shadow-2xl backdrop-blur space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800/80 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-inner">
+              <Zap className="h-5 w-5 text-emerald-400" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-zinc-100 flex items-center gap-2">
+                Outreach ROI & Unit Economics Engine
+                <span className="rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 border border-emerald-500/30">
+                  Live ROI Engine
+                </span>
+              </h3>
+              <p className="text-xs text-zinc-400">
+                Revenue generated per 100 WhatsApps sent, meeting acquisition velocity, and closed deal yields
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-mono text-zinc-400 bg-zinc-900 px-3 py-1 rounded-xl border border-zinc-800">
+            Window: <b className="text-emerald-400">{rangeLabel}</b>
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          {/* Card 1: Revenue per 100 Messages */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3.5 space-y-1">
+            <div className="flex items-center justify-between text-xs text-zinc-400 font-semibold">
+              <span>Yield per 100 WhatsApps</span>
+              <DollarSign className="h-4 w-4 text-emerald-400" />
+            </div>
+            <div className="text-2xl font-mono font-bold text-emerald-400">
+              ${unitEconomics.revenuePer100Messages.toLocaleString()}
+            </div>
+            <p className="text-[11px] text-zinc-500">
+              Every 100 outreach dispatches returns ${unitEconomics.revenuePer100Messages.toLocaleString()} in realized revenue.
+            </p>
+          </div>
+
+          {/* Card 2: Single Click Value */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3.5 space-y-1">
+            <div className="flex items-center justify-between text-xs text-zinc-400 font-semibold">
+              <span>Value Per Single Send</span>
+              <Target className="h-4 w-4 text-cyan-400" />
+            </div>
+            <div className="text-2xl font-mono font-bold text-cyan-400">
+              ${unitEconomics.valuePerSingleMessage}
+            </div>
+            <p className="text-[11px] text-zinc-500">
+              Earned in banked revenue every time you click &ldquo;Send WhatsApp&rdquo;.
+            </p>
+          </div>
+
+          {/* Card 3: Messages to Book Meeting */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3.5 space-y-1">
+            <div className="flex items-center justify-between text-xs text-zinc-400 font-semibold">
+              <span>Effort to Book Meeting</span>
+              <Clock className="h-4 w-4 text-amber-400" />
+            </div>
+            <div className="text-2xl font-mono font-bold text-amber-400">
+              {unitEconomics.messagesPerMeeting} <span className="text-xs font-normal text-zinc-400">msgs</span>
+            </div>
+            <p className="text-[11px] text-zinc-500">
+              Average outreach volume required to land 1 qualified client discovery call.
+            </p>
+          </div>
+
+          {/* Card 4: Meeting Close Rate */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3.5 space-y-1">
+            <div className="flex items-center justify-between text-xs text-zinc-400 font-semibold">
+              <span>Meeting → Deal Close Rate</span>
+              <Award className="h-4 w-4 text-purple-400" />
+            </div>
+            <div className="text-2xl font-mono font-bold text-purple-400">
+              {unitEconomics.meetingCloseRate}%
+            </div>
+            <p className="text-[11px] text-zinc-500">
+              {unitEconomics.closedWonMeetings} of {unitEconomics.totalMeetings} meetings closed won into paying clients.
+            </p>
+          </div>
         </div>
       </div>
 

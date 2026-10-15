@@ -1,6 +1,27 @@
-import { Lead, CadenceStage, Meeting, Project, Task, CadenceTemplate, Niche } from '@/types/crm';
+import { Lead, CadenceStage, Meeting, Project, Task, CadenceTemplate, Niche, SenderProfile } from '@/types/crm';
 import { getTodayISO, addDays } from './date-utils';
 import { DEFAULT_CADENCE_TEMPLATES } from './whatsapp';
+
+export const DEFAULT_SENDER_PROFILES: SenderProfile[] = [
+  {
+    id: 'sender-primary',
+    name: 'Primary Line (Main Agency)',
+    phone: '+1 (415) 555-0199',
+    isDefault: true,
+  },
+  {
+    id: 'sender-hunter-2',
+    name: 'Secondary SIM (Hunter 2)',
+    phone: '+44 7911 123456',
+    isDefault: false,
+  },
+  {
+    id: 'sender-backup',
+    name: 'Backup Warm Line',
+    phone: '+971 50 987 6543',
+    isDefault: false,
+  },
+];
 
 export const DEFAULT_NICHES: Niche[] = [
   {
@@ -69,6 +90,7 @@ export function getInitialSeedData(): {
   tasks: Task[];
   templates: CadenceTemplate[];
   niches: Niche[];
+  senderProfiles: SenderProfile[];
 } {
   const today = getTodayISO();
   const yesterday = addDays(today, -1);
@@ -552,5 +574,6 @@ export function getInitialSeedData(): {
     tasks,
     templates: DEFAULT_CADENCE_TEMPLATES,
     niches: DEFAULT_NICHES,
+    senderProfiles: DEFAULT_SENDER_PROFILES,
   };
 }

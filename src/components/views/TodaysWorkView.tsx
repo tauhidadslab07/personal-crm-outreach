@@ -9,6 +9,7 @@ import { ProspectTimeBadge } from '../common/ProspectTimeBadge';
 import { LeadWarmthBadge } from '../common/LeadWarmthBadge';
 import { calculateLeadWarmth } from '@/lib/warmth';
 import { ObjectionBusterModal } from '../modals/ObjectionBusterModal';
+import { SnoozeModal } from '../modals/SnoozeModal';
 import { SCRIPT_VARIANTS_MAP, interpolateTemplate, buildWhatsAppUrl } from '@/lib/whatsapp';
 import { getTodayISO, isOverdue, getDaysDifferenceFromToday, formatTime12h, STAGE_TITLES } from '@/lib/date-utils';
 import { Lead, CadenceStage, CadenceStageNumber, KillSwitchStatus } from '@/types/crm';
@@ -38,6 +39,7 @@ import {
   ChevronUp,
   Sparkles,
   Copy,
+  Smartphone,
 } from 'lucide-react';
 import { buildGoogleCalendarUrl, downloadICSFile } from '@/lib/calendar';
 
@@ -67,12 +69,16 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   const setKillSwitch = useCRMStore((s) => s.setKillSwitch);
   const toggleTask = useCRMStore((s) => s.toggleTask);
   const setLeadNote = useCRMStore((s) => s.setLeadNote);
+  const senderProfiles = useCRMStore((s) => s.senderProfiles);
+  const activeSenderProfileId = useCRMStore((s) => s.activeSenderProfileId);
+  const setActiveSenderProfile = useCRMStore((s) => s.setActiveSenderProfile);
 
   const [activeBucket, setActiveBucket] = useState<'all' | CadenceStageNumber>('all');
   const [warmthFilter, setWarmthFilter] = useState<'all' | 'hot' | 'warm' | 'cold'>('all');
   const [editingNoteLeadId, setEditingNoteLeadId] = useState<string | null>(null);
   const [tempNoteText, setTempNoteText] = useState<string>('');
   const [selectedObjectionLead, setSelectedObjectionLead] = useState<Lead | null>(null);
+  const [snoozeTarget, setSnoozeTarget] = useState<{ lead: Lead; stage: CadenceStage } | null>(null);
   const [expandedVariantLeadId, setExpandedVariantLeadId] = useState<string | null>(null);
   const [selectedCustomScripts, setSelectedCustomScripts] = useState<Record<string, string>>({});
   const today = getTodayISO();
@@ -391,6 +397,38 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
           })}
         </div>
 
+        {/* Multi-WhatsApp Sender Profile & Account Safety Switcher */}
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-zinc-900/60 p-2.5 sm:p-3 rounded-2xl border border-zinc-800/80">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Smartphone className="h-3.5 w-3.5 text-emerald-400" />
+              Active WhatsApp Line:
+            </span>
+            <select
+              value={activeSenderProfileId}
+              onChange={(e) => {
+                setActiveSenderProfile(e.target.value);
+                const selected = senderProfiles.find((p) => p.id === e.target.value);
+                if (selected) {
+                  setToastMessage(`📱 Switched sender to: ${selected.name} (${selected.phone})`);
+                  setTimeout(() => setToastMessage(null), 3000);
+                }
+              }}
+              className="rounded-xl border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-xs font-bold text-emerald-400 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-inner"
+            >
+              {senderProfiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} • {p.phone} {p.isDefault ? '(Default)' : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="text-[11px] text-zinc-400 hidden sm:flex items-center gap-1.5">
+            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Anti-Spam Safety: Switch lines across outbound batches</span>
+          </div>
+        </div>
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3">
           <div>
             <h2 className="text-lg font-bold text-zinc-100 tracking-tight flex items-center gap-2">
@@ -559,6 +597,15 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                           <ShieldAlert className="h-3 w-3 text-amber-400" />
                           <span>Objections</span>
                           <span className="text-[9px] text-cyan-400 font-bold">• 🎙️ Voice</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSnoozeTarget({ lead, stage })}
+                          className="inline-flex items-center gap-1 rounded-lg border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 px-2 py-0.5 text-[10px] font-bold text-purple-300 transition-all cursor-pointer shadow-sm"
+                          title="Snooze / Reschedule this follow-up stage"
+                        >
+                          <Clock className="h-3 w-3 text-purple-400" />
+                          <span>Snooze</span>
                         </button>
                       </div>
                     </div>
@@ -978,6 +1025,18 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
         isOpen={Boolean(selectedObjectionLead)}
         onClose={() => setSelectedObjectionLead(null)}
         lead={selectedObjectionLead}
+      />
+
+      {/* Follow-up Snooze & Reschedule Modal */}
+      <SnoozeModal
+        isOpen={Boolean(snoozeTarget)}
+        onClose={() => setSnoozeTarget(null)}
+        lead={snoozeTarget?.lead}
+        stage={snoozeTarget?.stage}
+        onSnoozed={(leadName, date) => {
+          setToastMessage(`✓ Follow-up for "${leadName}" snoozed to ${date}.`);
+          setTimeout(() => setToastMessage(null), 3500);
+        }}
       />
     </div>
   );

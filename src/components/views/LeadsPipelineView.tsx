@@ -10,6 +10,8 @@ import { ProspectTimeBadge } from '../common/ProspectTimeBadge';
 import { LeadWarmthBadge } from '../common/LeadWarmthBadge';
 import { calculateLeadWarmth } from '@/lib/warmth';
 import { ObjectionBusterModal } from '../modals/ObjectionBusterModal';
+import { SnoozeModal } from '../modals/SnoozeModal';
+import { CadenceStage } from '@/types/crm';
 import {
   Users,
   Search,
@@ -25,6 +27,7 @@ import {
   FileEdit,
   ShieldAlert,
   Flame,
+  Clock,
 } from 'lucide-react';
 import { exportLeadsToCSV } from '@/lib/csv-export';
 
@@ -60,6 +63,7 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   const [editingNoteLeadId, setEditingNoteLeadId] = useState<string | null>(null);
   const [tempNoteText, setTempNoteText] = useState<string>('');
   const [selectedObjectionLead, setSelectedObjectionLead] = useState<Lead | null>(null);
+  const [snoozeTarget, setSnoozeTarget] = useState<{ lead: Lead; stage: CadenceStage } | null>(null);
 
   const handleMessageSent = (lead: Lead) => {
     advanceLeadStage(lead.id);
@@ -441,6 +445,17 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                           <ShieldAlert className="h-4 w-4" />
                         </button>
                         <button
+                          type="button"
+                          onClick={() => {
+                            const stage = stages.find((s) => s.leadId === lead.id && s.stageNumber === lead.currentStage);
+                            if (stage) setSnoozeTarget({ lead, stage });
+                          }}
+                          title="Snooze / Reschedule Follow-up"
+                          className="rounded-lg bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 p-1.5 transition-colors cursor-pointer"
+                        >
+                          <Clock className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => onScheduleMeeting(lead.id)}
                           title="Schedule Intelligent Meeting"
                           className="rounded-lg bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-300 p-1.5 transition-colors"
@@ -678,17 +693,31 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                           </button>
                         )}
 
-                        {/* Card Footer: Objections & Delete */}
+                        {/* Card Footer: Objections, Snooze & Delete */}
                         <div className="pt-2 flex items-center justify-between gap-1 border-t border-zinc-800/60 mt-2">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedObjectionLead(lead)}
-                            className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 text-[9px] font-bold text-amber-300 transition-all cursor-pointer shadow-sm"
-                            title="Instant objection responses & 30-sec voice note scripts"
-                          >
-                            <ShieldAlert className="h-2.5 w-2.5 text-amber-400" />
-                            <span>Objection & Voice</span>
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedObjectionLead(lead)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-1.5 py-0.5 text-[9px] font-bold text-amber-300 transition-all cursor-pointer shadow-sm"
+                              title="Instant objection responses & 30-sec voice note scripts"
+                            >
+                              <ShieldAlert className="h-2.5 w-2.5 text-amber-400" />
+                              <span>Objection</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const stage = stages.find((s) => s.leadId === lead.id && s.stageNumber === lead.currentStage);
+                                if (stage) setSnoozeTarget({ lead, stage });
+                              }}
+                              className="inline-flex items-center gap-1 rounded-lg border border-purple-500/30 bg-purple-500/10 hover:bg-purple-500/20 px-1.5 py-0.5 text-[9px] font-bold text-purple-300 transition-all cursor-pointer shadow-sm"
+                              title="Snooze / Reschedule Follow-up"
+                            >
+                              <Clock className="h-2.5 w-2.5 text-purple-400" />
+                              <span>Snooze</span>
+                            </button>
+                          </div>
 
                           <button
                             type="button"
@@ -715,6 +744,18 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         isOpen={Boolean(selectedObjectionLead)}
         onClose={() => setSelectedObjectionLead(null)}
         lead={selectedObjectionLead}
+      />
+
+      {/* Follow-up Snooze & Reschedule Modal */}
+      <SnoozeModal
+        isOpen={Boolean(snoozeTarget)}
+        onClose={() => setSnoozeTarget(null)}
+        lead={snoozeTarget?.lead}
+        stage={snoozeTarget?.stage}
+        onSnoozed={(leadName, date) => {
+          setToastMessage(`✓ Follow-up for "${leadName}" snoozed to ${date}.`);
+          setTimeout(() => setToastMessage(null), 3500);
+        }}
       />
     </div>
   );

@@ -19,6 +19,7 @@ export const VelocityBar: React.FC<VelocityBarProps> = ({
   const dailyGoal = useCRMStore((s) => s.dailyGoal);
   const streakDays = useCRMStore((s) => s.streakDays);
   const setDailyGoal = useCRMStore((s) => s.setDailyGoal);
+  const incrementStreak = useCRMStore((s) => s.incrementStreak);
 
   const [isEditingGoal, setIsEditingGoal] = useState(false);
   const [goalInput, setGoalInput] = useState(String(dailyGoal));
@@ -28,21 +29,46 @@ export const VelocityBar: React.FC<VelocityBarProps> = ({
   const isAllDone = completed >= dailyGoal && (total === 0 || completed >= total);
   const prevDoneRef = useRef(false);
 
+  const playVictoryChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.12);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime + idx * 0.12);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.12 + 0.35);
+        osc.start(ctx.currentTime + idx * 0.12);
+        osc.stop(ctx.currentTime + idx * 0.12 + 0.4);
+      });
+    } catch {
+      // Audio context blocked
+    }
+  };
+
   useEffect(() => {
     if (isAllDone && !prevDoneRef.current) {
       try {
         confetti({
-          particleCount: 90,
-          spread: 75,
+          particleCount: 100,
+          spread: 80,
           origin: { y: 0.6 },
-          colors: ['#10B981', '#3B82F6', '#F59E0B', '#EC4899'],
+          colors: ['#10B981', '#3B82F6', '#F59E0B', '#EC4899', '#8B5CF6'],
         });
+        playVictoryChime();
+        incrementStreak();
       } catch (err) {
         console.error(err);
       }
     }
     prevDoneRef.current = isAllDone;
-  }, [isAllDone]);
+  }, [isAllDone, incrementStreak]);
 
   const handleSaveGoal = () => {
     const val = parseInt(goalInput, 10);

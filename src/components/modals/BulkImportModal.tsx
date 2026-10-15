@@ -20,6 +20,7 @@ interface ParsedRow {
   company?: string;
   country: ReturnType<typeof parsePhoneAndDetectCountry>;
   isValid: boolean;
+  isDuplicate: boolean;
 }
 
 const SAMPLE_BULK_INPUT = `Tanvir Ahmed, +880 1712-345678, Apex Tech
@@ -34,6 +35,7 @@ Liam O'Connor, +61 412 345 678, Sydney Media`;
 export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClose }) => {
   const addBulkLeads = useCRMStore((s) => s.addBulkLeads);
   const niches = useCRMStore((s) => s.niches);
+  const leads = useCRMStore((s) => s.leads);
   const [inputText, setInputText] = useState('');
   const [batchNiche, setBatchNiche] = useState(niches[0]?.name || 'General');
 
@@ -81,6 +83,16 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
       }
 
       const country = parsePhoneAndDetectCountry(phoneRaw);
+      const sanitized = sanitizePhoneForWhatsApp(country.e164 || phoneRaw);
+      const isDuplicate = Boolean(
+        sanitized &&
+          sanitized.length >= 6 &&
+          leads.some(
+            (l) =>
+              l.phoneSanitized === sanitized ||
+              (l.phoneRaw && l.phoneRaw.replace(/\D/g, '') === sanitized)
+          )
+      );
       const isValid = Boolean(name && phoneRaw && country.countryCode);
 
       return {
@@ -90,14 +102,16 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
         company,
         country,
         isValid,
+        isDuplicate,
       };
     });
-  }, [inputText]);
+  }, [inputText, leads]);
 
-  const validCount = parsedRows.filter((r) => r.isValid).length;
+  const validCount = parsedRows.filter((r) => r.isValid && !r.isDuplicate).length;
+  const duplicateCount = parsedRows.filter((r) => r.isDuplicate).length;
 
   const handleImport = () => {
-    const validRows = parsedRows.filter((r) => r.isValid);
+    const validRows = parsedRows.filter((r) => r.isValid && !r.isDuplicate);
     if (validRows.length === 0) return;
 
     addBulkLeads(
@@ -211,7 +225,11 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
                     ) : (
                       <span className="text-[10px] text-zinc-500">No code</span>
                     )}
-                    {row.isValid ? (
+                    {row.isDuplicate ? (
+                      <span className="rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 text-[10px] font-bold">
+                        ⚠️ Duplicate (Skip)
+                      </span>
+                    ) : row.isValid ? (
                       <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                     ) : (
                       <AlertCircle className="h-4 w-4 text-amber-400" />
@@ -227,7 +245,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
         <div className="flex items-center justify-between pt-3 border-t border-zinc-800">
           <span className="text-xs text-zinc-400">
             {validCount > 0
-              ? `${validCount} leads ready to batch insert into Stage 0`
+              ? `${validCount} leads ready to batch insert ${duplicateCount > 0 ? `(${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'} skipped)` : ''}`
               : 'Add rows above to begin batch import'}
           </span>
           <div className="flex items-center gap-2">
@@ -242,7 +260,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
               type="button"
               disabled={validCount === 0}
               onClick={handleImport}
-              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-950/50 hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all disabled:opacity-40 disabled:pointer-events-none active:scale-95"
+              className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-950/50 hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all disabled:opacity-40 disabled:pointer-events-none active:scale-95 cursor-pointer"
             >
               <UploadCloud className="h-4 w-4" />
               Batch Import {validCount} Leads

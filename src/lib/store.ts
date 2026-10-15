@@ -14,8 +14,9 @@ import {
   Niche,
   CRMTab,
   StageViewStatus,
+  SenderProfile,
 } from '@/types/crm';
-import { getInitialSeedData, DEFAULT_NICHES } from './seed-data';
+import { getInitialSeedData, DEFAULT_NICHES, DEFAULT_SENDER_PROFILES } from './seed-data';
 import { addDays, CADENCE_INTERVAL_DAYS, getTodayISO, STAGE_TITLES } from './date-utils';
 import { buildWhatsAppUrl, getPrefilledMessageForStage } from './whatsapp';
 import { parsePhoneAndDetectCountry, sanitizePhoneForWhatsApp } from './phone';
@@ -29,6 +30,8 @@ interface CRMState {
   tasks: Task[];
   templates: CadenceTemplate[];
   niches: Niche[];
+  senderProfiles: SenderProfile[];
+  activeSenderProfileId: string;
   activeTab: CRMTab;
   searchQuery: string;
   selectedNicheFilter: string;
@@ -42,6 +45,15 @@ interface CRMState {
   resetToSampleData: () => void;
   restoreDatabase: (backupData: any) => void;
   setDailyGoal: (goal: number) => void;
+  incrementStreak: () => void;
+
+  // Sender Profiles
+  setActiveSenderProfile: (id: string) => void;
+  addSenderProfile: (profile: Omit<SenderProfile, 'id'>) => SenderProfile;
+  deleteSenderProfile: (id: string) => void;
+
+  // Snooze Action
+  snoozeStage: (stageId: string, newDate: string, reason?: string) => void;
 
   // Niche Actions
   addNiche: (input: { name: string; description?: string; color?: string; targetAudience?: string }) => Niche;
@@ -110,14 +122,76 @@ export const useCRMStore = create<CRMState>()(
       selectedNicheFilter: 'all',
       dailyGoal: 20,
       streakDays: 4,
+      senderProfiles: getInitialSeedData().senderProfiles || DEFAULT_SENDER_PROFILES,
+      activeSenderProfileId: 'sender-primary',
 
       setActiveTab: (tab) => set({ activeTab: tab }),
       setSearchQuery: (query) => set({ searchQuery: query }),
       setSelectedNicheFilter: (niche) => set({ selectedNicheFilter: niche }),
       setDailyGoal: (goal) => set({ dailyGoal: Math.max(1, goal) }),
+      incrementStreak: () => set((s) => ({ streakDays: (s.streakDays || 0) + 1 })),
+
+      setActiveSenderProfile: (id) => set({ activeSenderProfileId: id }),
+
+      addSenderProfile: (profile) => {
+        const id = `sender-${Date.now()}`;
+        const newProfile: SenderProfile = {
+          id,
+          name: profile.name.trim(),
+          phone: profile.phone.trim(),
+          isDefault: Boolean(profile.isDefault),
+        };
+        set((state) => ({
+          senderProfiles: [...(state.senderProfiles || []), newProfile],
+        }));
+        return newProfile;
+      },
+
+      deleteSenderProfile: (id) => {
+        set((state) => {
+          const remaining = (state.senderProfiles || []).filter((p) => p.id !== id);
+          return {
+            senderProfiles: remaining,
+            activeSenderProfileId:
+              state.activeSenderProfileId === id
+                ? remaining[0]?.id || 'sender-primary'
+                : state.activeSenderProfileId,
+          };
+        });
+      },
+
+      snoozeStage: (stageId, newDate, reason) => {
+        const today = getTodayISO();
+        const stage = get().stages.find((s) => s.id === stageId);
+        if (!stage) return;
+
+        const lead = get().leads.find((l) => l.id === stage.leadId);
+        const reasonText = reason ? ` (${reason})` : '';
+        const noteEntry = `[${today}] ⏰ Snoozed to ${newDate}${reasonText}`;
+        const updatedNotes = lead?.notes ? `${lead.notes}\n${noteEntry}` : noteEntry;
+
+        set((state) => ({
+          stages: state.stages.map((st) =>
+            st.id === stageId ? { ...st, scheduledDate: newDate, notes: noteEntry } : st
+          ),
+          leads: lead
+            ? state.leads.map((ld) =>
+                ld.id === lead.id ? { ...ld, notes: updatedNotes, updatedAt: today } : ld
+              )
+            : state.leads,
+        }));
+      },
 
       resetToSampleData: () => {
-        set({ ...getInitialSeedData(), searchQuery: '', selectedNicheFilter: 'all', dailyGoal: 20, streakDays: 4 });
+        set({
+          ...getInitialSeedData(),
+          searchQuery: '',
+          selectedNicheFilter: 'all',
+          dailyGoal: 20,
+          streakDays: 4,
+          senderProfiles: DEFAULT_SENDER_PROFILES,
+          activeSenderProfileId: 'sender-primary',
+        });
       },
 
       restoreDatabase: (backupData: any) => {
@@ -131,6 +205,8 @@ export const useCRMStore = create<CRMState>()(
           tasks: Array.isArray(d.tasks) ? d.tasks : [],
           niches: Array.isArray(d.niches) && d.niches.length > 0 ? d.niches : DEFAULT_NICHES,
           templates: Array.isArray(d.templates) && d.templates.length > 0 ? d.templates : getInitialSeedData().templates,
+          senderProfiles: Array.isArray(d.senderProfiles) && d.senderProfiles.length > 0 ? d.senderProfiles : DEFAULT_SENDER_PROFILES,
+          activeSenderProfileId: d.activeSenderProfileId || 'sender-primary',
           dailyGoal: typeof d.dailyGoal === 'number' ? d.dailyGoal : 20,
           streakDays: typeof d.streakDays === 'number' ? d.streakDays : 4,
           searchQuery: '',

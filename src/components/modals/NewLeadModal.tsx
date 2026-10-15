@@ -5,8 +5,9 @@ import { Modal } from './Modal';
 import { CountryBadge } from '../common/CountryBadge';
 import { useCRMStore } from '@/lib/store';
 import { getAllCountries, parsePhoneAndDetectCountry, sanitizePhoneForWhatsApp } from '@/lib/phone';
+import { STAGE_TITLES } from '@/lib/date-utils';
 import { CountryCode } from 'libphonenumber-js';
-import { AlertTriangle, Check, UserPlus, Globe } from 'lucide-react';
+import { AlertTriangle, Check, UserPlus, Globe, ShieldAlert } from 'lucide-react';
 
 interface NewLeadModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ interface NewLeadModalProps {
 export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, initialNiche }) => {
   const addLead = useCRMStore((s) => s.addLead);
   const niches = useCRMStore((s) => s.niches);
+  const leads = useCRMStore((s) => s.leads);
 
   const countryList = useMemo(() => getAllCountries(), []);
 
@@ -26,6 +28,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
   const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
   const [niche, setNiche] = useState(initialNiche || niches[0]?.name || 'General');
+  const [allowDuplicate, setAllowDuplicate] = useState(false);
 
   // Sync initialNiche when opened
   React.useEffect(() => {
@@ -92,9 +95,22 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
     setLocalNumber(val);
   };
 
+  // Check for duplicate phone number
+  const duplicateLead = useMemo(() => {
+    if (!fullPhoneNumber.trim()) return null;
+    const sanitized = sanitizePhoneForWhatsApp(countryInfo.e164 || fullPhoneNumber);
+    if (!sanitized || sanitized.length < 5) return null;
+    return leads.find((l) => {
+      const matchSanitized = l.phoneSanitized === sanitized;
+      const matchRawDigits = l.phoneRaw && l.phoneRaw.replace(/\D/g, '') === sanitized;
+      return matchSanitized || matchRawDigits;
+    });
+  }, [leads, fullPhoneNumber, countryInfo]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!localNumber.trim() || !fullPhoneNumber.trim()) return;
+    if (duplicateLead && !allowDuplicate) return;
 
     const sanitized = sanitizePhoneForWhatsApp(countryInfo.e164 || fullPhoneNumber);
     const finalName =
@@ -223,6 +239,37 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
               </span>
             )}
           </div>
+
+          {/* Duplicate Lead Detection Alert */}
+          {duplicateLead && (
+            <div className="mt-2.5 rounded-xl border border-amber-500/40 bg-amber-950/30 p-3 space-y-2 animate-in fade-in">
+              <div className="flex items-start gap-2 text-xs">
+                <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5 text-zinc-300">
+                  <p className="font-bold text-amber-200">
+                    ⚠️ Duplicate Contact Detected!
+                  </p>
+                  <p>
+                    This number is already registered for{' '}
+                    <strong className="text-white">&ldquo;{duplicateLead.name}&rdquo;</strong>
+                    {duplicateLead.company ? ` at ${duplicateLead.company}` : ''} ({STAGE_TITLES[duplicateLead.currentStage]}).
+                  </p>
+                  <p className="text-[11px] text-zinc-400">
+                    Adding this lead again may cause duplicate outreach messages to the same client.
+                  </p>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 pt-1.5 border-t border-amber-500/20 text-[11px] text-amber-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={allowDuplicate}
+                  onChange={(e) => setAllowDuplicate(e.target.checked)}
+                  className="rounded border-amber-500/40 bg-zinc-900 text-amber-500 focus:ring-0 cursor-pointer"
+                />
+                <span>Allow adding as separate duplicate record</span>
+              </label>
+            </div>
+          )}
         </div>
 
         {/* Company & Email */}
@@ -284,7 +331,12 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
           </button>
           <button
             type="submit"
-            className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-950/50 hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all active:scale-95 cursor-pointer"
+            disabled={!localNumber.trim() || (Boolean(duplicateLead) && !allowDuplicate)}
+            className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-950/50 transition-all active:scale-95 ${
+              Boolean(duplicateLead) && !allowDuplicate
+                ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed opacity-60'
+                : 'bg-emerald-600 hover:bg-emerald-500 cursor-pointer'
+            }`}
           >
             <UserPlus className="h-4 w-4" />
             Add Lead & Schedule Stage 0

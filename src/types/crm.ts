@@ -143,3 +143,10 @@ export type UserAccount = {
 };
 
 export type CRMTab = 'today' | 'leads' | 'niches' | 'meetings' | 'projects' | 'analytics' | 'users';
+
+export type SenderProfile = {
+  id: string;
+  name: string; // e.g. "Primary WhatsApp (Alex)", "UK Line (Hunter 2)"
+  phone: string; // e.g. "+1 (555) 019-2831"
+  isDefault?: boolean;
+};
