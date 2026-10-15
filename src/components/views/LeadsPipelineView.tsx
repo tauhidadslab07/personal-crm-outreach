@@ -18,6 +18,7 @@ import {
   ExternalLink,
   Download,
   CheckCircle2,
+  FileEdit,
 } from 'lucide-react';
 import { exportLeadsToCSV } from '@/lib/csv-export';
 
@@ -40,6 +41,7 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   const niches = useCRMStore((s) => s.niches);
   const selectedNicheFilter = useCRMStore((s) => s.selectedNicheFilter);
   const setSelectedNicheFilter = useCRMStore((s) => s.setSelectedNicheFilter);
+  const setLeadNote = useCRMStore((s) => s.setLeadNote);
 
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
   const [filterStage, setFilterStage] = useState<string>('all');
@@ -48,6 +50,8 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   const [filterDate, setFilterDate] = useState<string>('all');
   const [mobileKanbanStage, setMobileKanbanStage] = useState<number | 'all'>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [editingNoteLeadId, setEditingNoteLeadId] = useState<string | null>(null);
+  const [tempNoteText, setTempNoteText] = useState<string>('');
 
   const handleMessageSent = (lead: Lead) => {
     advanceLeadStage(lead.id);
@@ -298,6 +302,12 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                           </span>
                         )}
                       </div>
+                      {lead.notes && (
+                        <p className="text-[11px] text-zinc-400 italic line-clamp-1 mt-1 flex items-center gap-1">
+                          <FileEdit className="h-3 w-3 text-emerald-400 shrink-0" />
+                          <span>{lead.notes}</span>
+                        </p>
+                      )}
                     </td>
 
                     <td className="px-4 py-3.5">
@@ -516,6 +526,61 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                           isoCode={lead.isoCode}
                           className="text-[10px] py-0.5 px-1.5"
                         />
+
+                        {/* Quick Note Editor */}
+                        <div className="pt-1.5 border-t border-zinc-800/60">
+                          {editingNoteLeadId === lead.id ? (
+                            <div className="space-y-1.5 animate-in fade-in">
+                              <textarea
+                                value={tempNoteText}
+                                onChange={(e) => setTempNoteText(e.target.value)}
+                                placeholder="Add note..."
+                                rows={2}
+                                className="w-full rounded-lg border border-zinc-700 bg-zinc-950 px-2 py-1 text-[11px] text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500 font-sans"
+                              />
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingNoteLeadId(null)}
+                                  className="rounded px-1.5 py-0.5 text-[9px] text-zinc-400 hover:text-zinc-200"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setLeadNote(lead.id, tempNoteText);
+                                    setEditingNoteLeadId(null);
+                                    setToastMessage(`✓ Note saved for "${lead.name}".`);
+                                    setTimeout(() => setToastMessage(null), 3000);
+                                  }}
+                                  className="rounded bg-emerald-600 hover:bg-emerald-500 px-2 py-0.5 text-[9px] font-bold text-white transition-all shadow cursor-pointer"
+                                >
+                                  Save
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div
+                              onClick={() => {
+                                setEditingNoteLeadId(lead.id);
+                                setTempNoteText(lead.notes || '');
+                              }}
+                              className="group flex items-center justify-between gap-1 p-1 rounded-lg bg-zinc-950/40 hover:bg-zinc-800/40 border border-zinc-800/40 hover:border-zinc-700/60 cursor-pointer transition-all"
+                              title="Click to edit prospect note"
+                            >
+                              <div className="flex items-center gap-1 min-w-0">
+                                <FileEdit className="h-2.5 w-2.5 text-emerald-400 shrink-0" />
+                                <span className="text-[10px] text-zinc-400 group-hover:text-zinc-200 truncate">
+                                  {lead.notes ? lead.notes : 'Add note...'}
+                                </span>
+                              </div>
+                              <span className="text-[9px] text-zinc-500 group-hover:text-emerald-400 font-semibold shrink-0">
+                                {lead.notes ? 'Edit' : '+'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
 
                         {targetStage && (
                           <div className="pt-1.5 border-t border-zinc-800/60 space-y-1">

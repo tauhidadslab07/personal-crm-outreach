@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCRMStore } from '@/lib/store';
 import { VelocityBar } from '../common/VelocityBar';
 import { PhoneBadge } from '../common/PhoneBadge';
@@ -22,7 +22,13 @@ import {
   ArrowRight,
   MessageCircle,
   Layers,
+  CalendarPlus,
+  Download,
+  Volume2,
+  Bell,
+  FileEdit,
 } from 'lucide-react';
+import { buildGoogleCalendarUrl, downloadICSFile } from '@/lib/calendar';
 
 interface TodaysWorkViewProps {
   onScheduleMeetingForLead: (leadId: string) => void;
@@ -49,9 +55,33 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   const setStageViewStatus = useCRMStore((s) => s.setStageViewStatus);
   const setKillSwitch = useCRMStore((s) => s.setKillSwitch);
   const toggleTask = useCRMStore((s) => s.toggleTask);
+  const setLeadNote = useCRMStore((s) => s.setLeadNote);
 
   const [activeBucket, setActiveBucket] = useState<'all' | CadenceStageNumber>('all');
+  const [editingNoteLeadId, setEditingNoteLeadId] = useState<string | null>(null);
+  const [tempNoteText, setTempNoteText] = useState<string>('');
   const today = getTodayISO();
+
+  const playOverdueChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.12, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
+    } catch {
+      // Audio context blocked by browser
+    }
+  };
 
   // Find all stages that are scheduled for today OR overdue, and NOT sent, for active leads
   const activeLeadMap = new Map(leads.map((l) => [l.id, l]));
@@ -92,6 +122,16 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   const completedTodayCount = stagesSentToday.length;
 
   const overdueStages = stagesDueTodayOrOverdue.filter((s) => isOverdue(s.scheduledDate));
+
+  // Automatically chime if overdue follow-ups are waiting
+  useEffect(() => {
+    if (overdueStages.length > 0) {
+      const timer = setTimeout(() => {
+        playOverdueChime();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [overdueStages.length]);
 
   // Bucketed stages
   const filteredStages = stagesDueTodayOrOverdue.filter((s) => {
@@ -151,6 +191,33 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
         total={totalTodayGoal}
         overdueCount={overdueStages.length}
       />
+
+      {/* Overdue Follow-up Audio Alert Banner */}
+      {overdueStages.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-300 shadow-lg shadow-rose-950/20 animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="h-4 w-4 text-rose-400 shrink-0 animate-pulse" />
+            <span className="text-xs font-bold">
+              ⚠️ Attention: You have {overdueStages.length} overdue follow-up{overdueStages.length === 1 ? '' : 's'} requiring immediate outreach!
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                playOverdueChime();
+                setToastMessage('🔔 Audio chime played.');
+                setTimeout(() => setToastMessage(null), 2500);
+              }}
+              title="Play gentle chime alert"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/40 bg-rose-950/50 hover:bg-rose-900/70 px-3 py-1.5 text-xs font-bold text-rose-200 transition-all active:scale-95 cursor-pointer shadow-sm"
+            >
+              <Volume2 className="h-3.5 w-3.5 text-rose-400" />
+              <span>Chime Alert</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Floating Real-time Success Toast */}
       {toastMessage && (
@@ -220,6 +287,39 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                       Join Call
                     </a>
                   )}
+                  <a
+                    href={buildGoogleCalendarUrl({
+                      title: 'Outreach Strategy Call',
+                      leadName: meeting.leadName,
+                      meetingDate: meeting.meetingDate,
+                      startTime: meeting.startTime,
+                      endTime: meeting.endTime,
+                      location: meeting.meetingLink || meeting.locationNotes,
+                    })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Add to Google Calendar"
+                    className="rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 p-2 text-xs font-semibold transition-all inline-flex items-center justify-center cursor-pointer"
+                  >
+                    <CalendarPlus className="h-3.5 w-3.5 text-emerald-400" />
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadICSFile({
+                        title: 'Outreach Strategy Call',
+                        leadName: meeting.leadName,
+                        meetingDate: meeting.meetingDate,
+                        startTime: meeting.startTime,
+                        endTime: meeting.endTime,
+                        location: meeting.meetingLink || meeting.locationNotes,
+                      })
+                    }
+                    title="Download .ics Calendar File"
+                    className="rounded-xl border border-zinc-700 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 p-2 text-xs font-semibold transition-all inline-flex items-center justify-center cursor-pointer"
+                  >
+                    <Download className="h-3.5 w-3.5 text-cyan-400" />
+                  </button>
                   <button
                     onClick={() => onOpenMeetingOutcome(meeting)}
                     className="flex-1 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 py-1.5 text-xs font-semibold transition-all"
@@ -398,6 +498,61 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                           </span>
                         )}
                       </div>
+                    </div>
+
+                    {/* Quick Prospect Note & Timeline */}
+                    <div className="pt-2 border-t border-zinc-800/60">
+                      {editingNoteLeadId === lead.id ? (
+                        <div className="space-y-1.5 animate-in fade-in">
+                          <textarea
+                            value={tempNoteText}
+                            onChange={(e) => setTempNoteText(e.target.value)}
+                            placeholder="E.g., Client requested call back after 5pm, asked for case study..."
+                            rows={2}
+                            className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-2.5 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-emerald-500 font-sans"
+                          />
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setEditingNoteLeadId(null)}
+                              className="rounded-lg px-2 py-0.5 text-[10px] text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setLeadNote(lead.id, tempNoteText);
+                                setEditingNoteLeadId(null);
+                                setToastMessage(`✓ Note saved for "${lead.name}".`);
+                                setTimeout(() => setToastMessage(null), 3000);
+                              }}
+                              className="rounded-lg bg-emerald-600 hover:bg-emerald-500 px-2.5 py-0.5 text-[10px] font-bold text-white transition-all shadow cursor-pointer"
+                            >
+                              Save Note
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          onClick={() => {
+                            setEditingNoteLeadId(lead.id);
+                            setTempNoteText(lead.notes || '');
+                          }}
+                          className="group flex items-center justify-between gap-2 p-1.5 rounded-xl bg-zinc-950/40 hover:bg-zinc-800/40 border border-zinc-800/40 hover:border-zinc-700/60 cursor-pointer transition-all"
+                          title="Click to edit prospect note"
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <FileEdit className="h-3 w-3 text-emerald-400 shrink-0" />
+                            <span className="text-[11px] text-zinc-400 group-hover:text-zinc-200 truncate">
+                              {lead.notes ? lead.notes : 'Add quick prospect note...'}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-zinc-500 group-hover:text-emerald-400 font-semibold shrink-0">
+                            {lead.notes ? 'Edit' : '+ Note'}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Message Engagement Status Switcher */}

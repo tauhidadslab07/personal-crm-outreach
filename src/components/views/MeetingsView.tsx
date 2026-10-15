@@ -14,7 +14,10 @@ import {
   ShieldCheck,
   Trophy,
   ExternalLink,
+  CalendarPlus,
+  Download,
 } from 'lucide-react';
+import { buildGoogleCalendarUrl, downloadICSFile } from '@/lib/calendar';
 
 interface MeetingsViewProps {
   onOpenNewMeeting: () => void;
@@ -162,6 +165,39 @@ export const MeetingsView: React.FC<MeetingsViewProps> = ({
                         <Video className="h-4 w-4" />
                       </a>
                     )}
+                    <a
+                      href={buildGoogleCalendarUrl({
+                        title: 'Outreach Strategy Call',
+                        leadName: meeting.leadName,
+                        meetingDate: meeting.meetingDate,
+                        startTime: meeting.startTime,
+                        endTime: meeting.endTime,
+                        location: meeting.meetingLink || meeting.locationNotes,
+                      })}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 p-2 transition-colors cursor-pointer"
+                      title="Sync to Google Calendar"
+                    >
+                      <CalendarPlus className="h-4 w-4" />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        downloadICSFile({
+                          title: 'Outreach Strategy Call',
+                          leadName: meeting.leadName,
+                          meetingDate: meeting.meetingDate,
+                          startTime: meeting.startTime,
+                          endTime: meeting.endTime,
+                          location: meeting.meetingLink || meeting.locationNotes,
+                        })
+                      }
+                      className="rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 p-2 transition-colors cursor-pointer"
+                      title="Download .ics Calendar File"
+                    >
+                      <Download className="h-4 w-4" />
+                    </button>
                     <button
                       onClick={() => onOpenOutcome(meeting)}
                       className="rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-3 py-1.5 text-xs font-semibold transition-colors"
