@@ -302,8 +302,27 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         </select>
       </div>
 
-      {/* Render Mode: Table */}
-      {viewMode === 'table' ? (
+      {/* Empty State */}
+      {filteredLeads.length === 0 ? (
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-12 text-center space-y-3">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
+            <Users className="h-6 w-6" />
+          </div>
+          <h4 className="font-bold text-zinc-200 text-base">Pipeline is Clean & Ready!</h4>
+          <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+            No leads currently in your pipeline. Click &ldquo;+ Add Target Lead&rdquo; or use &ldquo;Bulk Import&rdquo; to add prospects for your target niches.
+          </p>
+          <div className="pt-2">
+            <button
+              onClick={onOpenNewLead}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-emerald-950/50 hover:bg-emerald-500 transition-all active:scale-95 cursor-pointer"
+            >
+              <Users className="h-3.5 w-3.5" />
+              <span>+ Add First Target Lead</span>
+            </button>
+          </div>
+        </div>
+      ) : viewMode === 'table' ? (
         <div className="space-y-3">
           {/* Mobile Card List (sm:hidden) */}
           <div className="sm:hidden space-y-3">

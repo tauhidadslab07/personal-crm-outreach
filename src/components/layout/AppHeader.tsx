@@ -17,10 +17,13 @@ import {
   Menu,
   X,
   ShieldCheck,
+  Lock,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
 import { isSupabaseConfigured } from '@/lib/supabase';
 import { exportLeadsToCSV } from '@/lib/csv-export';
-import { useAuthStore } from '@/lib/auth-store';
+import { useAuthStore, MASTER_ADMIN_PASSWORD } from '@/lib/auth-store';
 
 interface AppHeaderProps {
   onOpenNewLead: () => void;
@@ -49,6 +52,26 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   const currentUser = useAuthStore((s) => s.currentUser);
   const logout = useAuthStore((s) => s.logout);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Security confirmation state for database reset
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [resetPasswordInput, setResetPasswordInput] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [resetToast, setResetToast] = useState<string | null>(null);
+
+  const handleConfirmReset = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (resetPasswordInput !== MASTER_ADMIN_PASSWORD) {
+      setResetError('Incorrect Super Admin password. Reset cancelled.');
+      return;
+    }
+    resetToSampleData();
+    setIsResetConfirmOpen(false);
+    setResetPasswordInput('');
+    setResetError('');
+    setResetToast('✓ Database cleaned & reset to clean state (2 niches only)!');
+    setTimeout(() => setResetToast(null), 4000);
+  };
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-zinc-800 bg-zinc-950/80 px-3 sm:px-6 backdrop-blur-md">
@@ -209,11 +232,15 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
           </div>
         )}
 
-        {/* Demo reset (desktop only) */}
+        {/* Secure Reset Database (desktop) */}
         <button
-          onClick={resetToSampleData}
-          title="Reset to sample demo data"
-          className="rounded-xl p-2 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300 transition-colors hidden sm:block"
+          onClick={() => {
+            setResetError('');
+            setResetPasswordInput('');
+            setIsResetConfirmOpen(true);
+          }}
+          title="Reset Database to Clean State (Admin Verification Required)"
+          className="rounded-xl p-2 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300 transition-colors hidden sm:block cursor-pointer"
         >
           <RotateCcw className="h-4 w-4" />
         </button>
@@ -342,12 +369,14 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
               <button
                 onClick={() => {
                   setIsMobileMenuOpen(false);
-                  resetToSampleData();
+                  setResetError('');
+                  setResetPasswordInput('');
+                  setIsResetConfirmOpen(true);
                 }}
                 className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl border border-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs font-medium transition-all"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
-                <span>Reset to Sample Demo Data</span>
+                <span>Reset Database to Clean State</span>
               </button>
 
               <button
@@ -361,6 +390,86 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
                 <span>Sign Out</span>
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Success Toast */}
+      {resetToast && (
+        <div className="fixed top-5 right-5 z-50 flex items-center gap-2.5 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-bold text-white shadow-2xl shadow-emerald-950/80 border border-emerald-400/40 animate-in fade-in slide-in-from-top-4">
+          <CheckCircle2 className="h-5 w-5 shrink-0 text-white" />
+          <span>{resetToast}</span>
+        </div>
+      )}
+
+      {/* Security Verification Modal for Database Reset */}
+      {isResetConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => setIsResetConfirmOpen(false)}
+          />
+          <div className="relative w-full max-w-md rounded-2xl border border-rose-500/30 bg-zinc-900 p-6 shadow-2xl space-y-4 z-10">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
+                <AlertTriangle className="h-6 w-6 text-rose-400" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-zinc-100">
+                  Security Check: Reset Database
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  Admin authorization required to clear database to clean state.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleConfirmReset} className="space-y-3 pt-1">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1 flex items-center gap-1.5">
+                  <Lock className="h-3.5 w-3.5 text-rose-400" />
+                  <span>Enter Super Admin Password</span>
+                </label>
+                <input
+                  type="password"
+                  value={resetPasswordInput}
+                  onChange={(e) => {
+                    setResetPasswordInput(e.target.value);
+                    setResetError('');
+                  }}
+                  placeholder="Super Admin Password..."
+                  autoFocus
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3.5 py-2.5 text-xs text-zinc-100 placeholder-zinc-500 focus:border-rose-500 focus:outline-none focus:ring-1 focus:ring-rose-500 font-mono"
+                />
+                {resetError && (
+                  <p className="text-xs font-bold text-rose-400 mt-1.5">{resetError}</p>
+                )}
+              </div>
+
+              <div className="rounded-xl bg-zinc-950/60 p-3 border border-zinc-800 text-[11px] text-zinc-400 space-y-1">
+                <p className="font-semibold text-zinc-300">This action will:</p>
+                <ul className="list-disc list-inside space-y-0.5 text-zinc-400">
+                  <li>Remove all leads, stages, meetings, and projects.</li>
+                  <li>Retain only 2 designated target niches: <b>Website Developer</b> & <b>Website Development Agency</b>.</li>
+                </ul>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsResetConfirmOpen(false)}
+                  className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2 text-xs font-semibold text-zinc-300 hover:bg-zinc-700 hover:text-white transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-rose-600 hover:bg-rose-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-rose-950/50 transition-all active:scale-95 cursor-pointer"
+                >
+                  Authorize & Reset
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

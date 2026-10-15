@@ -123,7 +123,7 @@ export const useCRMStore = create<CRMState>()(
       searchQuery: '',
       selectedNicheFilter: 'all',
       dailyGoal: 20,
-      streakDays: 4,
+      streakDays: 0,
       senderProfiles: getInitialSeedData().senderProfiles || DEFAULT_SENDER_PROFILES,
       activeSenderProfileId: 'sender-primary',
 
@@ -190,7 +190,7 @@ export const useCRMStore = create<CRMState>()(
           searchQuery: '',
           selectedNicheFilter: 'all',
           dailyGoal: 20,
-          streakDays: 4,
+          streakDays: 0,
           senderProfiles: DEFAULT_SENDER_PROFILES,
           activeSenderProfileId: 'sender-primary',
         });
@@ -956,7 +956,7 @@ export const useCRMStore = create<CRMState>()(
       },
     }),
     {
-      name: 'personal-crm-storage-v1',
+      name: 'personal-crm-storage-v2',
       partialize: (state) => ({
         leads: state.leads,
         stages: state.stages,
@@ -968,13 +968,39 @@ export const useCRMStore = create<CRMState>()(
         dailyGoal: state.dailyGoal,
         streakDays: state.streakDays,
       }),
-      merge: (persistedState: any, currentState: CRMState) => ({
-        ...currentState,
-        ...persistedState,
-        niches: Array.isArray(persistedState?.niches)
-          ? persistedState.niches
-          : currentState.niches,
-      }),
+      merge: (persistedState: any, currentState: CRMState) => {
+        const persistedLeads: Lead[] = Array.isArray(persistedState?.leads) ? persistedState.leads : [];
+        const hasLegacyDummyData = persistedLeads.some(
+          (l) =>
+            l.id === 'lead-1' ||
+            l.id === 'lead-9' ||
+            l.name === 'Kenji Sato' ||
+            l.name === 'Chloe Dubois' ||
+            l.name === 'Sarah Jenkins' ||
+            l.name === 'Elena Rostova'
+        );
+
+        if (hasLegacyDummyData) {
+          return {
+            ...currentState,
+            leads: [],
+            stages: [],
+            meetings: [],
+            projects: [],
+            tasks: [],
+            niches: DEFAULT_NICHES,
+          };
+        }
+
+        return {
+          ...currentState,
+          ...persistedState,
+          niches:
+            Array.isArray(persistedState?.niches) && persistedState.niches.length > 0
+              ? persistedState.niches
+              : currentState.niches,
+        };
+      },
     }
   )
 );
