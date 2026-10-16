@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Modal } from './Modal';
 import { useCRMStore } from '@/lib/store';
-import { Layers, Sparkles, Target, Palette } from 'lucide-react';
+import { Layers, Sparkles, Target, Palette, ShieldAlert } from 'lucide-react';
 
 interface NewNicheModalProps {
   isOpen: boolean;
@@ -22,15 +22,23 @@ const COLOR_OPTIONS = [
 
 export const NewNicheModal: React.FC<NewNicheModalProps> = ({ isOpen, onClose }) => {
   const addNiche = useCRMStore((s) => s.addNiche);
+  const niches = useCRMStore((s) => s.niches);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [targetAudience, setTargetAudience] = useState('');
   const [color, setColor] = useState('emerald');
 
+  // Check duplicate niche name (case-insensitive)
+  const isDuplicateNiche = React.useMemo(() => {
+    const trimmed = name.trim().toLowerCase();
+    if (!trimmed) return false;
+    return niches.some((n) => n.name.trim().toLowerCase() === trimmed);
+  }, [name, niches]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || isDuplicateNiche) return;
 
     addNiche({
       name: name.trim(),
@@ -68,9 +76,21 @@ export const NewNicheModal: React.FC<NewNicheModalProps> = ({ isOpen, onClose })
               placeholder="e.g. Solar Contractors, Med-Spas, B2B SaaS"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 pl-9 pr-3.5 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
+              className={`w-full rounded-xl border bg-zinc-800/80 pl-9 pr-3.5 py-2 text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none transition-all ${
+                isDuplicateNiche
+                  ? 'border-rose-500/80 focus:border-rose-500 focus:ring-1 focus:ring-rose-500'
+                  : 'border-zinc-700 focus:border-emerald-500'
+              }`}
             />
           </div>
+          {isDuplicateNiche && (
+            <div className="mt-2 flex items-center gap-2 rounded-xl border border-rose-500/40 bg-rose-950/30 p-2.5 text-xs text-rose-300 animate-in fade-in">
+              <ShieldAlert className="h-4 w-4 shrink-0 text-rose-400" />
+              <span>
+                ⚠️ <strong>Duplicate Niche:</strong> A niche named &ldquo;{name.trim()}&rdquo; already exists in your CRM.
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Target Audience / ICP */}
@@ -128,9 +148,10 @@ export const NewNicheModal: React.FC<NewNicheModalProps> = ({ isOpen, onClose })
         {/* Submit */}
         <button
           type="submit"
-          className="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition-all active:scale-[0.98] mt-2"
+          disabled={!name.trim() || isDuplicateNiche}
+          className="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition-all active:scale-[0.98] mt-2 disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
         >
-          Save & Launch Niche
+          {isDuplicateNiche ? '⚠️ Duplicate Niche - Choose Unique Name' : 'Save & Launch Niche'}
         </button>
       </form>
     </Modal>

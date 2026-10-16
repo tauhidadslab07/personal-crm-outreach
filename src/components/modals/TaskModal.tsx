@@ -5,7 +5,7 @@ import { Modal } from './Modal';
 import { Task, TaskPriority } from '@/types/crm';
 import { useCRMStore } from '@/lib/store';
 import { getTodayISO } from '@/lib/date-utils';
-import { CheckSquare } from 'lucide-react';
+import { CheckSquare, ShieldAlert } from 'lucide-react';
 
 interface TaskModalProps {
   isOpen: boolean;
@@ -14,12 +14,25 @@ interface TaskModalProps {
 
 export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose }) => {
   const addTask = useCRMStore((s) => s.addTask);
+  const tasks = useCRMStore((s) => s.tasks);
   const leads = useCRMStore((s) => s.leads);
 
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState(getTodayISO());
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [clientName, setClientName] = useState('');
+
+  // Check duplicate active task for same date
+  const isDuplicateTask = React.useMemo(() => {
+    const cleanTitle = title.trim().toLowerCase();
+    if (!cleanTitle) return false;
+    return tasks.some(
+      (t) =>
+        !t.isCompleted &&
+        t.dueDate === dueDate &&
+        t.title.trim().toLowerCase() === cleanTitle
+    );
+  }, [title, dueDate, tasks]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,8 +70,20 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose }) => {
             placeholder="e.g. Audit WhatsApp funnel for Apex Tech"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
+            className={`w-full rounded-xl border bg-zinc-800/80 px-3.5 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none transition-all ${
+              isDuplicateTask
+                ? 'border-amber-500/80 focus:border-amber-500 focus:ring-1 focus:ring-amber-500'
+                : 'border-zinc-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
+            }`}
           />
+          {isDuplicateTask && (
+            <div className="mt-2 flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-950/30 p-2.5 text-xs text-amber-300 animate-in fade-in">
+              <ShieldAlert className="h-4 w-4 shrink-0 text-amber-400" />
+              <span>
+                ⚠️ <strong>Duplicate Task:</strong> An active task with this exact title already exists for this due date.
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">

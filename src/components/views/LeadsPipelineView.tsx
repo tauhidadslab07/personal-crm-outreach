@@ -98,6 +98,37 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
     return Array.from(map.values());
   }, [leads]);
 
+  // Compute duplicate lead IDs (leads sharing same phone or email)
+  const duplicateLeadIds = useMemo(() => {
+    const phoneMap = new Map<string, string[]>();
+    const emailMap = new Map<string, string[]>();
+
+    leads.forEach((l) => {
+      const sanitized = l.phoneSanitized || (l.phoneRaw ? l.phoneRaw.replace(/\D/g, '') : '');
+      if (sanitized && sanitized.length >= 6) {
+        const arr = phoneMap.get(sanitized) || [];
+        arr.push(l.id);
+        phoneMap.set(sanitized, arr);
+      }
+      if (l.email && l.email.trim()) {
+        const em = l.email.trim().toLowerCase();
+        const arr = emailMap.get(em) || [];
+        arr.push(l.id);
+        emailMap.set(em, arr);
+      }
+    });
+
+    const dupSet = new Set<string>();
+    phoneMap.forEach((ids) => {
+      if (ids.length > 1) ids.forEach((id) => dupSet.add(id));
+    });
+    emailMap.forEach((ids) => {
+      if (ids.length > 1) ids.forEach((id) => dupSet.add(id));
+    });
+
+    return dupSet;
+  }, [leads]);
+
   // Filtered Leads with Date Range Support
   const filteredLeads = useMemo(() => {
     const today = getTodayISO();
@@ -116,7 +147,9 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         return false;
       }
 
-      if (filterStatus === 'revivable') {
+      if (filterStatus === 'duplicates') {
+        if (!duplicateLeadIds.has(lead.id)) return false;
+      } else if (filterStatus === 'revivable') {
         const daysInactive = getDaysAgo(lead.updatedAt || lead.createdAt);
         const isDormant = lead.killSwitchStatus === 'completed' || lead.killSwitchStatus === 'not_interested';
         if (!isDormant || daysInactive < 25) return false;
@@ -150,7 +183,7 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
 
       return true;
     });
-  }, [leads, stages, searchQuery, filterStage, filterStatus, filterCountry, selectedNicheFilter, filterDate, filterWarmth]);
+  }, [leads, stages, searchQuery, filterStage, filterStatus, filterCountry, selectedNicheFilter, filterDate, filterWarmth, duplicateLeadIds]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
@@ -236,7 +269,11 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         <select
           value={filterStatus}
           onChange={(e) => setFilterStatus(e.target.value)}
-          className="flex-1 min-w-[130px] sm:flex-initial rounded-xl border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-xs text-zinc-200 focus:outline-none"
+          className={`flex-1 min-w-[130px] sm:flex-initial rounded-xl border px-3 py-1.5 text-xs focus:outline-none transition-all ${
+            filterStatus === 'duplicates'
+              ? 'border-rose-500/60 bg-rose-950/40 text-rose-200 font-bold'
+              : 'border-zinc-700 bg-zinc-800 text-zinc-200'
+          }`}
         >
           <option value="all">All Statuses</option>
           <option value="active">Active Outreach Loop</option>
@@ -245,6 +282,9 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
           <option value="wrong_number">Wrong Number</option>
           <option value="completed">Completed Cadence</option>
           <option value="revivable">♻️ Dormant / Revivable (25d+)</option>
+          {duplicateLeadIds.size > 0 && (
+            <option value="duplicates">⚠️ Duplicate Contacts ({duplicateLeadIds.size})</option>
+          )}
         </select>
 
         {/* Country Filter */}
@@ -302,6 +342,41 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         </select>
       </div>
 
+      {/* Duplicate Leads Alert Banner */}
+      {duplicateLeadIds.size > 0 && filterStatus !== 'duplicates' && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-950/20 p-3 text-xs text-amber-200 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0" />
+            <span>
+              <strong>⚠️ {duplicateLeadIds.size} Duplicate Contacts Detected</strong> in your pipeline sharing phone numbers or emails.
+            </span>
+          </div>
+          <button
+            onClick={() => setFilterStatus('duplicates')}
+            className="rounded-lg bg-amber-500/20 border border-amber-500/40 px-3 py-1 text-[11px] font-bold text-amber-300 hover:bg-amber-500/30 transition-all shrink-0 cursor-pointer"
+          >
+            Review Duplicates ({duplicateLeadIds.size})
+          </button>
+        </div>
+      )}
+
+      {filterStatus === 'duplicates' && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-rose-500/50 bg-rose-950/25 p-3.5 text-xs text-rose-200 animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4 text-rose-400 shrink-0" />
+            <span>
+              <strong>Filtering Duplicate Records ({filteredLeads.length}):</strong> Review each lead below to clean or merge repeated outreach records.
+            </span>
+          </div>
+          <button
+            onClick={() => setFilterStatus('all')}
+            className="rounded-lg bg-zinc-800 border border-zinc-700 px-3 py-1 text-[11px] font-bold text-zinc-300 hover:bg-zinc-700 transition-all shrink-0 cursor-pointer"
+          >
+            ✕ Clear Filter
+          </button>
+        </div>
+      )}
+
       {/* Empty State */}
       {filteredLeads.length === 0 ? (
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/40 p-12 text-center space-y-3">
@@ -350,6 +425,11 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                         <h4 className="font-bold text-zinc-100 text-sm truncate">
                           {lead.name}
                         </h4>
+                        {duplicateLeadIds.has(lead.id) && (
+                          <span className="rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 text-[9px] font-bold flex items-center gap-1 shrink-0">
+                            <ShieldAlert className="h-3 w-3" /> Duplicate
+                          </span>
+                        )}
                         <CountryBadge country={lead} size="sm" showName={false} />
                         <ProspectTimeBadge isoCode={lead.isoCode} />
                       </div>
@@ -524,7 +604,14 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                 return (
                   <tr key={lead.id} className="hover:bg-zinc-800/40 transition-colors">
                     <td className="px-4 py-3.5">
-                      <div className="font-bold text-zinc-100 text-sm">{lead.name}</div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-zinc-100 text-sm">{lead.name}</span>
+                        {duplicateLeadIds.has(lead.id) && (
+                          <span className="rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 text-[9px] font-bold flex items-center gap-1 shrink-0">
+                            <ShieldAlert className="h-3 w-3" /> Duplicate
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         {lead.company && (
                           <span className="text-zinc-400 text-xs">{lead.company}</span>

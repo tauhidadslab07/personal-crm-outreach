@@ -5,7 +5,7 @@ import { Modal } from './Modal';
 import { Project, ProjectStatus } from '@/types/crm';
 import { useCRMStore } from '@/lib/store';
 import { getTodayISO, addDays } from '@/lib/date-utils';
-import { FolderKanban, DollarSign, Calendar } from 'lucide-react';
+import { FolderKanban, DollarSign, Calendar, ShieldAlert } from 'lucide-react';
 
 interface ProjectModalProps {
   isOpen: boolean;
@@ -20,6 +20,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
 }) => {
   const addProject = useCRMStore((s) => s.addProject);
   const updateProject = useCRMStore((s) => s.updateProject);
+  const projects = useCRMStore((s) => s.projects);
   const leads = useCRMStore((s) => s.leads);
 
   const [clientName, setClientName] = useState('');
@@ -56,6 +57,19 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   const totalNum = parseFloat(totalOrderValue) || 0;
   const paidNum = parseFloat(paidAmount) || 0;
   const remainingNum = Math.max(0, totalNum - paidNum);
+
+  // Check if project with same name already exists for this client
+  const isDuplicateProject = React.useMemo(() => {
+    const cleanClient = clientName.trim().toLowerCase();
+    const cleanProj = projectName.trim().toLowerCase();
+    if (!cleanClient || !cleanProj) return false;
+    return projects.some(
+      (p) =>
+        (!existingProject || p.id !== existingProject.id) &&
+        p.clientName.trim().toLowerCase() === cleanClient &&
+        p.projectName.trim().toLowerCase() === cleanProj
+    );
+  }, [clientName, projectName, projects, existingProject]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,10 +130,23 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
               placeholder="e.g. Outreach Pipeline Architecture"
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
+              className={`w-full rounded-xl border bg-zinc-800/80 px-3.5 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none transition-all ${
+                isDuplicateProject
+                  ? 'border-amber-500/80 focus:border-amber-500 focus:ring-1 focus:ring-amber-500'
+                  : 'border-zinc-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
+              }`}
             />
           </div>
         </div>
+
+        {isDuplicateProject && (
+          <div className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-950/30 p-2.5 text-xs text-amber-300 animate-in fade-in">
+            <ShieldAlert className="h-4 w-4 shrink-0 text-amber-400" />
+            <span>
+              ⚠️ <strong>Duplicate Project Warning:</strong> A project named &ldquo;{projectName.trim()}&rdquo; already exists for {clientName.trim()}.
+            </span>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>

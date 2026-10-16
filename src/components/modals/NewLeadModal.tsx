@@ -7,7 +7,8 @@ import { useCRMStore } from '@/lib/store';
 import { getAllCountries, parsePhoneAndDetectCountry, sanitizePhoneForWhatsApp } from '@/lib/phone';
 import { STAGE_TITLES } from '@/lib/date-utils';
 import { CountryCode } from 'libphonenumber-js';
-import { AlertTriangle, Check, UserPlus, Globe, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, Check, UserPlus, Globe, ShieldAlert, ExternalLink, Mail, Building, Phone } from 'lucide-react';
+import { Lead } from '@/types/crm';
 
 interface NewLeadModalProps {
   isOpen: boolean;
@@ -15,10 +16,23 @@ interface NewLeadModalProps {
   initialNiche?: string;
 }
 
+export interface MatchedDuplicateField {
+  type: 'phone' | 'email' | 'company';
+  label: string;
+  value: string;
+}
+
+export interface DuplicateDetectionResult {
+  lead: Lead;
+  matchedFields: MatchedDuplicateField[];
+}
+
 export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, initialNiche }) => {
   const addLead = useCRMStore((s) => s.addLead);
   const niches = useCRMStore((s) => s.niches);
   const leads = useCRMStore((s) => s.leads);
+  const setSearchQuery = useCRMStore((s) => s.setSearchQuery);
+  const setActiveTab = useCRMStore((s) => s.setActiveTab);
 
   const countryList = useMemo(() => getAllCountries(), []);
 
@@ -95,22 +109,77 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
     setLocalNumber(val);
   };
 
-  // Check for duplicate phone number
-  const duplicateLead = useMemo(() => {
-    if (!fullPhoneNumber.trim()) return null;
-    const sanitized = sanitizePhoneForWhatsApp(countryInfo.e164 || fullPhoneNumber);
-    if (!sanitized || sanitized.length < 5) return null;
-    return leads.find((l) => {
-      const matchSanitized = l.phoneSanitized === sanitized;
-      const matchRawDigits = l.phoneRaw && l.phoneRaw.replace(/\D/g, '') === sanitized;
-      return matchSanitized || matchRawDigits;
+  // Comprehensive multi-field duplicate detection (Phone, Email, Company)
+  const duplicateResults = useMemo<DuplicateDetectionResult[]>(() => {
+    const results: DuplicateDetectionResult[] = [];
+    const sanitized = fullPhoneNumber.trim()
+      ? sanitizePhoneForWhatsApp(countryInfo.e164 || fullPhoneNumber)
+      : '';
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCompany = company.trim().toLowerCase();
+
+    leads.forEach((l) => {
+      const matchedFields: MatchedDuplicateField[] = [];
+
+      // Check phone match
+      if (sanitized && sanitized.length >= 6) {
+        const matchSanitized = l.phoneSanitized === sanitized;
+        const matchRawDigits = l.phoneRaw && l.phoneRaw.replace(/\D/g, '') === sanitized;
+        if (matchSanitized || matchRawDigits) {
+          matchedFields.push({
+            type: 'phone',
+            label: 'Phone Number',
+            value: l.phoneRaw,
+          });
+        }
+      }
+
+      // Check email match
+      if (cleanEmail && l.email && l.email.trim().toLowerCase() === cleanEmail) {
+        matchedFields.push({
+          type: 'email',
+          label: 'Email Address',
+          value: l.email,
+        });
+      }
+
+      // Check company match (length >= 3)
+      if (
+        cleanCompany &&
+        cleanCompany.length >= 3 &&
+        l.company &&
+        l.company.trim().toLowerCase() === cleanCompany
+      ) {
+        matchedFields.push({
+          type: 'company',
+          label: 'Company / Brand',
+          value: l.company,
+        });
+      }
+
+      if (matchedFields.length > 0) {
+        results.push({ lead: l, matchedFields });
+      }
     });
-  }, [leads, fullPhoneNumber, countryInfo]);
+
+    return results;
+  }, [leads, fullPhoneNumber, countryInfo, email, company]);
+
+  const primaryDuplicate = duplicateResults[0] || null;
+  const isPhoneDuplicate = duplicateResults.some((d) => d.matchedFields.some((f) => f.type === 'phone'));
+  const isEmailDuplicate = duplicateResults.some((d) => d.matchedFields.some((f) => f.type === 'email'));
+  const isCompanyDuplicate = duplicateResults.some((d) => d.matchedFields.some((f) => f.type === 'company'));
+
+  const handleJumpToLead = (targetLead: Lead) => {
+    setSearchQuery(targetLead.phoneRaw || targetLead.name);
+    setActiveTab('leads');
+    onClose();
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!localNumber.trim() || !fullPhoneNumber.trim()) return;
-    if (duplicateLead && !allowDuplicate) return;
+    if (primaryDuplicate && !allowDuplicate) return;
 
     const sanitized = sanitizePhoneForWhatsApp(countryInfo.e164 || fullPhoneNumber);
     const finalName =
@@ -133,6 +202,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
     setLocalNumber('');
     setCompany('');
     setEmail('');
+    setAllowDuplicate(false);
     onClose();
   };
 
@@ -240,34 +310,64 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
             )}
           </div>
 
-          {/* Duplicate Lead Detection Alert */}
-          {duplicateLead && (
-            <div className="mt-2.5 rounded-xl border border-amber-500/40 bg-amber-950/30 p-3 space-y-2 animate-in fade-in">
-              <div className="flex items-start gap-2 text-xs">
-                <ShieldAlert className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-                <div className="space-y-0.5 text-zinc-300">
-                  <p className="font-bold text-amber-200">
-                    ⚠️ Duplicate Contact Detected!
+          {/* Duplicate Lead Detection Alert Banner */}
+          {primaryDuplicate && (
+            <div className="mt-3 rounded-2xl border border-rose-500/50 bg-rose-950/20 p-3.5 space-y-3 animate-in fade-in shadow-lg shadow-rose-950/30">
+              <div className="flex items-start gap-2.5 text-xs">
+                <div className="rounded-lg bg-rose-500/20 p-1.5 text-rose-400 shrink-0 mt-0.5">
+                  <ShieldAlert className="h-4 w-4" />
+                </div>
+                <div className="space-y-1.5 text-zinc-200 min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="font-bold text-rose-200 text-sm">
+                      ⚠️ Duplicate Contact / Data Detected!
+                    </p>
+                    {primaryDuplicate.matchedFields.map((f, i) => (
+                      <span
+                        key={i}
+                        className="rounded-full bg-rose-500/20 border border-rose-500/40 px-2 py-0.5 text-[10px] font-bold text-rose-300"
+                      >
+                        Match: {f.label} ({f.value})
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-zinc-300 text-xs">
+                    This contact is already in your database as{' '}
+                    <strong className="text-white">&ldquo;{primaryDuplicate.lead.name}&rdquo;</strong>
+                    {primaryDuplicate.lead.company ? ` at ${primaryDuplicate.lead.company}` : ''}.
                   </p>
-                  <p>
-                    This number is already registered for{' '}
-                    <strong className="text-white">&ldquo;{duplicateLead.name}&rdquo;</strong>
-                    {duplicateLead.company ? ` at ${duplicateLead.company}` : ''} ({STAGE_TITLES[duplicateLead.currentStage]}).
-                  </p>
-                  <p className="text-[11px] text-zinc-400">
-                    Adding this lead again may cause duplicate outreach messages to the same client.
-                  </p>
+                  <div className="flex items-center gap-3 text-[11px] text-zinc-400">
+                    <span>
+                      Current Status: <strong className="text-emerald-400">{STAGE_TITLES[primaryDuplicate.lead.currentStage]}</strong>
+                    </span>
+                    <span>•</span>
+                    <span>
+                      Niche: <strong className="text-zinc-300">{primaryDuplicate.lead.niche || 'General'}</strong>
+                    </span>
+                  </div>
                 </div>
               </div>
-              <label className="flex items-center gap-2 pt-1.5 border-t border-amber-500/20 text-[11px] text-amber-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={allowDuplicate}
-                  onChange={(e) => setAllowDuplicate(e.target.checked)}
-                  className="rounded border-amber-500/40 bg-zinc-900 text-amber-500 focus:ring-0 cursor-pointer"
-                />
-                <span>Allow adding as separate duplicate record</span>
-              </label>
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-rose-500/20 text-xs">
+                <button
+                  type="button"
+                  onClick={() => handleJumpToLead(primaryDuplicate.lead)}
+                  className="inline-flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-bold underline-offset-2 hover:underline transition-all text-left"
+                >
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                  View & Open Existing Lead in Pipeline
+                </button>
+
+                <label className="flex items-center gap-2 text-[11px] text-amber-300 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={allowDuplicate}
+                    onChange={(e) => setAllowDuplicate(e.target.checked)}
+                    className="rounded border-amber-500/40 bg-zinc-900 text-amber-500 focus:ring-0 cursor-pointer"
+                  />
+                  <span>Allow adding duplicate record anyway</span>
+                </label>
+              </div>
             </div>
           )}
         </div>
@@ -275,28 +375,50 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
         {/* Company & Email */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">
-              Company / Brand
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+                Company / Brand
+              </label>
+              {isCompanyDuplicate && (
+                <span className="text-[10px] font-bold text-rose-400 flex items-center gap-1">
+                  <ShieldAlert className="h-3 w-3" /> Duplicate
+                </span>
+              )}
+            </div>
             <input
               type="text"
               placeholder="e.g. Apex Tech Solutions"
               value={company}
               onChange={(e) => setCompany(e.target.value)}
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+              className={`w-full rounded-xl border bg-zinc-800/80 px-3.5 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none transition-all ${
+                isCompanyDuplicate
+                  ? 'border-rose-500/80 focus:border-rose-500 focus:ring-1 focus:ring-rose-500'
+                  : 'border-zinc-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
+              }`}
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5">
-              Email Address
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+                Email Address
+              </label>
+              {isEmailDuplicate && (
+                <span className="text-[10px] font-bold text-rose-400 flex items-center gap-1">
+                  <ShieldAlert className="h-3 w-3" /> Duplicate
+                </span>
+              )}
+            </div>
             <input
               type="email"
               placeholder="lead@company.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+              className={`w-full rounded-xl border bg-zinc-800/80 px-3.5 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none transition-all ${
+                isEmailDuplicate
+                  ? 'border-rose-500/80 focus:border-rose-500 focus:ring-1 focus:ring-rose-500'
+                  : 'border-zinc-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
+              }`}
             />
           </div>
         </div>
@@ -331,15 +453,17 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
           </button>
           <button
             type="submit"
-            disabled={!localNumber.trim() || (Boolean(duplicateLead) && !allowDuplicate)}
-            className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-950/50 transition-all active:scale-95 ${
-              Boolean(duplicateLead) && !allowDuplicate
+            disabled={!localNumber.trim() || (Boolean(primaryDuplicate) && !allowDuplicate)}
+            className={`inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-lg transition-all active:scale-95 ${
+              Boolean(primaryDuplicate) && !allowDuplicate
                 ? 'bg-zinc-700 text-zinc-400 cursor-not-allowed opacity-60'
-                : 'bg-emerald-600 hover:bg-emerald-500 cursor-pointer'
+                : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-950/50 cursor-pointer'
             }`}
           >
             <UserPlus className="h-4 w-4" />
-            Add Lead & Schedule Stage 0
+            {Boolean(primaryDuplicate) && !allowDuplicate
+              ? '⚠️ Duplicate Warning Active'
+              : 'Add Lead & Schedule Stage 0'}
           </button>
         </div>
       </form>
