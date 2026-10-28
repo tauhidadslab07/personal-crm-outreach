@@ -5,38 +5,38 @@ export const DEFAULT_CADENCE_TEMPLATES: CadenceTemplate[] = [
   {
     id: 'stage-0-initial',
     stageNumber: 0,
-    name: 'Initial Value Pitch',
-    content: "Hey {name}, hope you're having a productive week! I came across your profile and noticed the work you're doing at {company}. We help founders and high-ticket service providers build high-converting client hunting & automated WhatsApp pipeline engines. Would you be open to a quick 10-minute intro call this week?",
+    name: 'Stage 0: Initial Pitch (Short & Direct)',
+    content: "Hey {name}, came across {company}'s web builds—really clean UI/UX! 🔥 Quick question: when your web development clients ask for Server-Side Tracking (Meta CAPI / GA4) to fix iOS17 ad tracking loss, does your team handle it in-house, or do you turn those requests down?",
   },
   {
     id: 'stage-1-fu1',
     stageNumber: 1,
-    name: 'Gentle Bump (Value Recap)',
-    content: "Hi {name}, following up on my note from a couple of days ago! Wanted to make sure it didn't get buried under your WhatsApp chats. Are you currently looking to ramp up your qualified client pipeline this quarter?",
+    name: 'Stage 1: Value-Drop & Wholesale Margin (Day 3)',
+    content: "Hi {name}, following up on my previous note! With iOS 17 and Safari ITP, e-commerce stores are losing 30-40% of their ad conversion data. We partner with web studios as a backend White-Label Tracking Partner: you charge clients $400–$600, we do 100% of the technical cloud setup for wholesale, and your agency keeps $250+ pure margin with zero code headache. Open to a 1-minute overview?",
   },
   {
     id: 'stage-2-fu2',
     stageNumber: 2,
-    name: 'Social Proof & Results',
-    content: "Hey {name}, quick question: how are you currently managing your client hunting and follow-ups? We just helped a partner double their booked meetings in 14 days using this exact cadence. Happy to share a quick 2-minute video breakdown if you're curious!",
+    name: 'Stage 2: Free 5-Min Audit Offer (Day 7)',
+    content: "Hey {name}, to make this completely risk-free: if you have an active client website (Shopify/WooCommerce), I'd be happy to run a complimentary 5-minute tracking audit showing any data leaks or missing purchase events. Zero obligations—just pure data so you can inspect our work quality before ever partnering. Should I check one of your live stores?",
   },
   {
     id: 'stage-3-fu3',
     stageNumber: 3,
-    name: 'Low-Friction Resource Offer',
-    content: "Hi {name}, dropping by with a quick resource. We put together a zero-friction Outreach Playbook specifically for high-growth operators. Can I send the direct link over?",
+    name: 'Stage 3: Soft Check-in on Launches (Day 12)',
+    content: "Hi {name}, quick soft check-in! Do you have any new client websites or e-commerce stores launching this month that might need bulletproof GTM Server-Side or Meta CAPI tracking?",
   },
   {
     id: 'stage-4-fu4',
     stageNumber: 4,
-    name: 'Timing & Priority Check',
-    content: "Hey {name}, I know you're busy running things! If this isn't top of mind right now, totally understand. Would circling back next month make more sense for your schedule?",
+    name: 'Stage 4: Alternative Angle - Dev Bandwidth Backup (Day 18)',
+    content: "Hey {name}, I know how intense web development project deadlines can get for agencies! If your in-house developers are currently maxed out with design and code delivery, we're always ready to jump in as your technical backend tracking backup under NDA. Would circling back next month make more sense for your schedule?",
   },
   {
     id: 'stage-5-fu5',
     stageNumber: 5,
-    name: 'Permission to Close Loop (Breakup)',
-    content: "Hi {name}, I don't want to bug you if this isn't relevant to your current priorities. I'll close out your file for now, but feel free to ping me whenever you're looking to optimize your pipeline. Wishing you continued growth!",
+    name: 'Stage 5: The Breakup Message (Day 25)',
+    content: "Hi {name}, I assume partnering for server-side tracking isn't a priority for {company} right now, and I completely respect your time! I'll close out your file so I don't clutter your WhatsApp. If you ever need a reliable backend partner for CAPI or broken tracking down the road, feel free to drop a message here. Wishing you continued growth! 🥂",
   },
 ];
 
@@ -200,8 +200,13 @@ export function getPrefilledMessageForStage(
 }
 
 /**
- * 30-Day Win-Back Re-Engagement Templates for Lost / Ghosted Leads
+ * Quick 10-Min Google Meet WhatsApp Pitch when a prospect replies
  */
+export function buildQuickMeetPitch(leadName: string): string {
+  const firstName = leadName ? leadName.split(' ')[0] : 'there';
+  return `Great to hear from you, ${firstName}! Let's hop on a quick 10-minute Google Meet this week so I can share my screen and show you our exact GTM & CAPI workflow for agency partners. Does Wednesday or Thursday suit you better?`;
+}
+
 export const WIN_BACK_TEMPLATES: ScriptVariant[] = [
   {
     id: 'winback-case-study',

@@ -5,8 +5,9 @@ import { Modal } from './Modal';
 import { parsePhoneAndDetectCountry, sanitizePhoneForWhatsApp } from '@/lib/phone';
 import { useCRMStore } from '@/lib/store';
 import { LeadSource } from '@/types/crm';
-import { UploadCloud, CheckCircle2, AlertCircle, FileText, ArrowRight, ShieldAlert } from 'lucide-react';
+import { UploadCloud, CheckCircle2, AlertCircle, FileText, ArrowRight, ShieldAlert, Sparkles } from 'lucide-react';
 import { CountryBadge } from '../common/CountryBadge';
+import { cleanCompanyName, cleanContactName } from '@/lib/cleaner';
 
 interface BulkImportModalProps {
   isOpen: boolean;
@@ -25,14 +26,14 @@ interface ParsedRow {
   duplicateReason?: string;
 }
 
-const SAMPLE_BULK_INPUT = `Tanvir Ahmed, +880 1712-345678, Apex Tech
-Sarah Jenkins, +1 (415) 555-2671, CloudScale AI
-Oliver Smith, +44 20 7946 0958, FinEdge Capital
-Zayed Al-Mansoor, +971 50 123 4567, Gulf Oasis
-Maximilian Weber, +49 151 23456789, Berlin SaaS Hub
-Elena Rostova, +1 (647) 555-0199, NorthStar
-Marcus Tan, +65 9123 4567, LionCity
-Liam O'Connor, +61 412 345 678, Sydney Media`;
+const SAMPLE_BULK_INPUT = `Tanvir Ahmed (Web Dev), +880 1712-345678, Apex Tech Solutions - Best Web Design Agency in Dubai | SEO
+Sarah Jenkins, +1 (415) 555-2671, CloudScale AI LLC (San Francisco)
+Oliver Smith, +44 20 7946 0958, FinEdge Capital Ltd. | Wealth Tech
+Zayed Al-Mansoor, +971 50 123 4567, Gulf Oasis Web Studio (Dubai, UAE)
+Maximilian Weber, +49 151 23456789, Berlin SaaS Hub GmbH - Top App Builders
+Elena Rostova, +1 (647) 555-0199, NorthStar Digital Media | Branding
+Marcus Tan, +65 9123 4567, LionCity Tech Solutions Pte Ltd
+Liam O'Connor, +61 412 345 678, Sydney Media Group - Fullstack Developers`;
 
 export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClose }) => {
   const addBulkLeads = useCRMStore((s) => s.addBulkLeads);
@@ -41,6 +42,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
   const [inputText, setInputText] = useState('');
   const [batchNiche, setBatchNiche] = useState(niches[0]?.name || 'General');
   const [skipDuplicates, setSkipDuplicates] = useState(true);
+  const [autoCleanCompany, setAutoCleanCompany] = useState(true);
 
   // Live parser for lines with in-batch & CRM duplicate detection
   const parsedRows: ParsedRow[] = useMemo(() => {
@@ -142,13 +144,17 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
       if (sanitized) seenPhonesInBatch.add(sanitized);
       if (cleanEmail) seenEmailsInBatch.add(cleanEmail);
 
-      const isValid = Boolean(name && phoneRaw && country.countryCode);
+      // Apply smart cleaning if enabled
+      const finalName = autoCleanCompany && name ? cleanContactName(name) : (name || 'Unnamed Lead');
+      const finalCompany = autoCleanCompany && company ? cleanCompanyName(company) : company;
+
+      const isValid = Boolean(finalName && phoneRaw && country.countryCode);
 
       return {
         raw: line,
-        name: name || 'Unnamed Lead',
+        name: finalName,
         phoneRaw,
-        company,
+        company: finalCompany,
         email: email || undefined,
         country,
         isValid,
@@ -156,7 +162,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
         duplicateReason,
       };
     });
-  }, [inputText, leads]);
+  }, [inputText, leads, autoCleanCompany]);
 
   const validFreshCount = parsedRows.filter((r) => r.isValid && !r.isDuplicate).length;
   const duplicateCount = parsedRows.filter((r) => r.isDuplicate).length;
@@ -216,6 +222,25 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
             ))}
             <option value="General">General</option>
           </select>
+        </div>
+
+        {/* Smart Sanitizer Toggle (SEO & Suffix Auto-Cleaner) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-emerald-950/20 border border-emerald-500/30 p-2.5 rounded-xl text-xs">
+          <div className="flex items-start sm:items-center gap-2">
+            <Sparkles className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5 sm:mt-0" />
+            <span className="text-zinc-200">
+              <strong className="text-emerald-300">Smart Name & Company Cleaner:</strong> Auto-strips SEO junk like <em>&ldquo;- Best Web Design Agency | SEO&rdquo;</em>, <em>&ldquo;LLC&rdquo;</em>, &amp; titles so your outreach looks 100% human.
+            </span>
+          </div>
+          <label className="flex items-center gap-1.5 text-xs text-emerald-300 font-bold cursor-pointer select-none shrink-0 self-end sm:self-auto">
+            <input
+              type="checkbox"
+              checked={autoCleanCompany}
+              onChange={(e) => setAutoCleanCompany(e.target.checked)}
+              className="rounded border-emerald-500/40 bg-zinc-900 text-emerald-500 focus:ring-0 cursor-pointer"
+            />
+            <span>Auto-Clean ON</span>
+          </label>
         </div>
 
         {/* Input Textarea Header */}

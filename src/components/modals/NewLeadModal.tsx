@@ -7,8 +7,9 @@ import { useCRMStore } from '@/lib/store';
 import { getAllCountries, parsePhoneAndDetectCountry, sanitizePhoneForWhatsApp } from '@/lib/phone';
 import { STAGE_TITLES } from '@/lib/date-utils';
 import { CountryCode } from 'libphonenumber-js';
-import { AlertTriangle, Check, UserPlus, Globe, ShieldAlert, ExternalLink, Mail, Building, Phone } from 'lucide-react';
+import { AlertTriangle, Check, UserPlus, Globe, ShieldAlert, ExternalLink, Mail, Building, Phone, Sparkles } from 'lucide-react';
 import { Lead } from '@/types/crm';
+import { cleanCompanyName, cleanContactName } from '@/lib/cleaner';
 
 interface NewLeadModalProps {
   isOpen: boolean;
@@ -181,17 +182,19 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
     if (!localNumber.trim() || !fullPhoneNumber.trim()) return;
     if (primaryDuplicate && !allowDuplicate) return;
 
+    const cleanedContactName = cleanContactName(name);
+    const cleanedCompanyName = cleanCompanyName(company);
     const sanitized = sanitizePhoneForWhatsApp(countryInfo.e164 || fullPhoneNumber);
     const finalName =
-      name.trim() ||
-      (company.trim()
-        ? `${company.trim()} Contact`
+      cleanedContactName.trim() ||
+      (cleanedCompanyName.trim()
+        ? `${cleanedCompanyName.trim()} Contact`
         : `Lead (${currentCountryOption.code} ${sanitized ? sanitized.slice(-4) : 'Prospect'})`);
 
     addLead({
       name: finalName,
       phoneRaw: fullPhoneNumber.trim(),
-      company: company.trim() || undefined,
+      company: cleanedCompanyName.trim() || undefined,
       email: email.trim() || undefined,
       niche,
       tags: [],
@@ -227,6 +230,16 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
             onChange={(e) => setName(e.target.value)}
             className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
           />
+          {name.trim() && cleanContactName(name) !== name.trim() && (
+            <button
+              type="button"
+              onClick={() => setName(cleanContactName(name))}
+              className="mt-1 text-[11px] text-emerald-400 hover:text-emerald-300 font-medium inline-flex items-center gap-1 transition-all"
+            >
+              <Sparkles className="h-3 w-3" />
+              <span>Clean Name: &ldquo;{cleanContactName(name)}&rdquo; (Click to apply)</span>
+            </button>
+          )}
         </div>
 
         {/* Real-time Phone Number with Dedicated Country Selector & Auto-Code (REQUIRED) */}
@@ -396,6 +409,16 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
                   : 'border-zinc-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
               }`}
             />
+            {company.trim() && cleanCompanyName(company) !== company.trim() && (
+              <button
+                type="button"
+                onClick={() => setCompany(cleanCompanyName(company))}
+                className="mt-1 text-[11px] text-emerald-400 hover:text-emerald-300 font-medium inline-flex items-center gap-1 transition-all"
+              >
+                <Sparkles className="h-3 w-3" />
+                <span>Clean Suffix: &ldquo;{cleanCompanyName(company)}&rdquo; (Click to apply)</span>
+              </button>
+            )}
           </div>
 
           <div>

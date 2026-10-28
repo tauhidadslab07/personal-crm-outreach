@@ -10,8 +10,9 @@ import { LeadWarmthBadge } from '../common/LeadWarmthBadge';
 import { calculateLeadWarmth } from '@/lib/warmth';
 import { ObjectionBusterModal } from '../modals/ObjectionBusterModal';
 import { SnoozeModal } from '../modals/SnoozeModal';
-import { SCRIPT_VARIANTS_MAP, interpolateTemplate, buildWhatsAppUrl, WIN_BACK_TEMPLATES } from '@/lib/whatsapp';
+import { SCRIPT_VARIANTS_MAP, interpolateTemplate, buildWhatsAppUrl, WIN_BACK_TEMPLATES, buildQuickMeetPitch } from '@/lib/whatsapp';
 import { getTodayISO, isOverdue, getDaysDifferenceFromToday, formatTime12h, STAGE_TITLES, getDaysAgo } from '@/lib/date-utils';
+import { downloadDatabaseBackup, isWeeklyBackupDue } from '@/lib/backup';
 import { Lead, CadenceStage, CadenceStageNumber, KillSwitchStatus } from '@/types/crm';
 import {
   Send,
@@ -85,7 +86,30 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   const [expandedVariantLeadId, setExpandedVariantLeadId] = useState<string | null>(null);
   const [selectedCustomScripts, setSelectedCustomScripts] = useState<Record<string, string>>({});
   const [selectedRevivalAngle, setSelectedRevivalAngle] = useState<Record<string, string>>({});
+  const [showBackupAlert, setShowBackupAlert] = useState(false);
   const today = getTodayISO();
+
+  useEffect(() => {
+    if (isWeeklyBackupDue()) {
+      setShowBackupAlert(true);
+    }
+  }, []);
+
+  const handleQuickBackup = () => {
+    const templates = useCRMStore.getState().templates;
+    downloadDatabaseBackup({
+      leads,
+      stages,
+      meetings,
+      projects,
+      tasks,
+      niches,
+      templates,
+    });
+    setShowBackupAlert(false);
+    setToastMessage('✓ Weekly JSON Backup downloaded safely!');
+    setTimeout(() => setToastMessage(null), 4000);
+  };
 
   const playOverdueChime = () => {
     try {
@@ -261,6 +285,35 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      {/* Weekly JSON Safety Backup Reminder Banner */}
+      {showBackupAlert && (
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 shadow-lg shadow-amber-950/20 animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <Download className="h-4 w-4 text-amber-400 shrink-0" />
+            <span className="text-xs font-semibold">
+              <strong>💾 Weekly Backup Reminder:</strong> Protect your client pipeline! Click to download your weekly JSON snapshot so you never lose data if browser cache clears.
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleQuickBackup}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Download Backup Now</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowBackupAlert(false)}
+              className="text-xs text-zinc-400 hover:text-zinc-200 px-2 py-1 transition-colors cursor-pointer"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 1. Daily Velocity Progress Tracker */}
       <VelocityBar
         completed={completedTodayCount}
@@ -850,6 +903,21 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                           Automated follow-up cadence is auto-paused so you can chat 1-on-1 freely without sending canned scripts.
                         </p>
                         <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-teal-500/20">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const pitch = buildQuickMeetPitch(lead.name);
+                              const url = buildWhatsAppUrl(lead.phoneSanitized || lead.phoneRaw, pitch);
+                              window.open(url, '_blank', 'noopener,noreferrer');
+                              setToastMessage(`✓ 10-Min Meet Pitch opened for "${lead.name}"!`);
+                              setTimeout(() => setToastMessage(null), 3500);
+                            }}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white px-2.5 py-1 text-xs font-bold transition-all shadow-sm cursor-pointer"
+                            title="Send recommended 10-minute Google Meet pitch to close the call"
+                          >
+                            <Video className="h-3 w-3" />
+                            <span>Send 10-Min Meet Pitch</span>
+                          </button>
                           <button
                             type="button"
                             onClick={() => onScheduleMeetingForLead(lead.id)}

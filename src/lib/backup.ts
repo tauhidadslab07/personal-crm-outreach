@@ -65,6 +65,45 @@ export function downloadDatabaseBackup(state: {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+
+  // Store last backup date in localStorage for automated weekly reminders
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('nexus_crm_last_backup_date', now.toISOString());
+    } catch {}
+  }
+}
+
+/**
+ * Returns the ISO date of the last successful JSON backup, or null
+ */
+export function getLastBackupDate(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem('nexus_crm_last_backup_date');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Returns true if no backup has been taken in the last 7 days or if today is Friday
+ */
+export function isWeeklyBackupDue(): boolean {
+  if (typeof window === 'undefined') return false;
+  const last = getLastBackupDate();
+  if (!last) return true; // Never backed up
+
+  const lastDate = new Date(last).getTime();
+  const now = new Date().getTime();
+  const diffDays = (now - lastDate) / (1000 * 60 * 60 * 24);
+
+  // Due if more than 7 days have passed, or if it is Friday (day 5) and not backed up today
+  const isFriday = new Date().getDay() === 5;
+  if (diffDays >= 7) return true;
+  if (isFriday && diffDays >= 1) return true;
+
+  return false;
 }
 
 /**

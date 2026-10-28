@@ -6,7 +6,7 @@
 export interface TimezoneInfo {
   formattedTime: string; // e.g. "2:45 PM"
   hour24: number;
-  timeOfDay: 'working_hours' | 'evening' | 'night' | 'early_morning';
+  timeOfDay: 'golden_window' | 'working_hours' | 'evening' | 'night' | 'early_morning';
   badgeLabel: string;
   badgeEmoji: string;
   badgeColor: 'emerald' | 'amber' | 'rose' | 'cyan';
@@ -102,7 +102,22 @@ export function getProspectLocalTime(isoCode?: string): TimezoneInfo {
   const minutePad = minutes < 10 ? `0${minutes}` : `${minutes}`;
   const formattedTime = `${hour12}:${minutePad} ${ampm}`;
 
-  // Evaluate working hours (9 AM - 6 PM is prime outreach window)
+  const totalMinutes = hours * 60 + minutes;
+
+  // 1. Golden Outreach Window (10:30 AM - 1:00 PM, minutes 630 to 780): Peak open and reply rate!
+  if (totalMinutes >= 630 && totalMinutes <= 780) {
+    return {
+      formattedTime,
+      hour24: hours,
+      timeOfDay: 'golden_window',
+      badgeLabel: '🔥 Golden Window (10:30 AM - 1 PM)',
+      badgeEmoji: '🔥',
+      badgeColor: 'emerald',
+      statusText: 'Golden Window! Highest response & open rate (10:30 AM - 1:00 PM local time).',
+    };
+  }
+
+  // 2. Standard working hours (9 AM - 6 PM is prime outreach window)
   if (hours >= 9 && hours < 18) {
     return {
       formattedTime,

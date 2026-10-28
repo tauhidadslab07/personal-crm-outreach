@@ -1,19 +1,19 @@
 import { CadenceStageNumber } from '@/types/crm';
 
 /**
- * Cadence interval days after sending current stage:
- * Stage 0 (Initial) -> Next is FU 1 in +2 days
- * Stage 1 (FU 1)    -> Next is FU 2 in +3 days
- * Stage 2 (FU 2)    -> Next is FU 3 in +4 days
- * Stage 3 (FU 3)    -> Next is FU 4 in +5 days
- * Stage 4 (FU 4)    -> Next is FU 5 (Breakup) in +7 days
+ * Cadence interval days after sending current stage (Ideal Formula):
+ * Stage 0 (Initial Day 1)  -> Next is FU 1 in +2 days (Day 3)
+ * Stage 1 (FU 1 Day 3)     -> Next is FU 2 in +4 days (Day 7)
+ * Stage 2 (FU 2 Day 7)     -> Next is FU 3 in +5 days (Day 12)
+ * Stage 3 (FU 3 Day 12)    -> Next is FU 4 in +6 days (Day 18)
+ * Stage 4 (FU 4 Day 18)    -> Next is FU 5 (Breakup) in +7 days (Day 25)
  */
 export const CADENCE_INTERVAL_DAYS: Record<CadenceStageNumber, number> = {
-  0: 2, // FU1 in 2 days
-  1: 3, // FU2 in 3 days
-  2: 4, // FU3 in 4 days
-  3: 5, // FU4 in 5 days
-  4: 7, // FU5 in 7 days
+  0: 2, // FU 1 in 2 days (Day 3)
+  1: 4, // FU 2 in 4 days (Day 7)
+  2: 5, // FU 3 in 5 days (Day 12)
+  3: 6, // FU 4 in 6 days (Day 18)
+  4: 7, // FU 5 in 7 days (Day 25)
   5: 0, // Terminal
 };
 
