@@ -42,6 +42,10 @@ import {
   Copy,
   Smartphone,
   RotateCcw,
+  Globe,
+  ExternalLink,
+  Building2,
+  Code,
 } from 'lucide-react';
 import { buildGoogleCalendarUrl, downloadICSFile } from '@/lib/calendar';
 
@@ -719,11 +723,28 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                               <CountryBadge country={lead} size="sm" showName={true} />
                               <ProspectTimeBadge isoCode={lead.isoCode} showDetails />
                             </div>
-                            {lead.company && (
-                              <p className="text-xs text-zinc-400 font-medium truncate">
-                                {lead.company}
-                              </p>
-                            )}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {lead.company && (
+                                <span className="text-xs text-zinc-300 font-medium truncate max-w-[180px]">
+                                  {lead.company}
+                                </span>
+                              )}
+                              {lead.website && (
+                                <a
+                                  href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 rounded-md bg-cyan-950/40 border border-cyan-500/30 px-1.5 py-0.5 text-[11px] font-mono text-cyan-300 hover:text-cyan-200 hover:bg-cyan-900/40 transition-colors"
+                                  title={lead.website}
+                                >
+                                  <Globe className="h-3 w-3 text-cyan-400 shrink-0" />
+                                  <span className="truncate max-w-[140px]">
+                                    {lead.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
+                                  </span>
+                                  <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+                                </a>
+                              )}
+                            </div>
                           </div>
 
                           <div className="flex flex-col items-end gap-1 shrink-0">
@@ -951,11 +972,44 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                           <CountryBadge country={lead} size="sm" showName={true} />
                           <ProspectTimeBadge isoCode={lead.isoCode} showDetails />
                         </div>
-                        {lead.company && (
-                          <p className="text-xs text-zinc-400 font-medium truncate">
-                            {lead.company}
-                          </p>
-                        )}
+                        <div className="flex items-center gap-2 flex-wrap text-xs">
+                          {lead.company && (
+                            <span className="text-zinc-300 font-medium truncate max-w-[180px]">
+                              {lead.company}
+                            </span>
+                          )}
+                          {lead.website && (
+                            <a
+                              href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-md bg-cyan-950/40 border border-cyan-500/30 px-1.5 py-0.5 text-[11px] font-mono text-cyan-300 hover:text-cyan-200 hover:bg-cyan-900/40 transition-colors"
+                              title={lead.website}
+                            >
+                              <Globe className="h-3 w-3 text-cyan-400 shrink-0" />
+                              <span className="truncate max-w-[150px]">
+                                {lead.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
+                              </span>
+                              <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+                            </a>
+                          )}
+                          {lead.niche && (
+                            <span
+                              className={`rounded-md border px-1.5 py-0.5 text-[10px] font-bold flex items-center gap-1 ${
+                                lead.niche === 'Website Development Agency'
+                                  ? 'bg-cyan-500/10 border-cyan-500/25 text-cyan-300'
+                                  : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
+                              }`}
+                            >
+                              {lead.niche === 'Website Development Agency' ? (
+                                <Building2 className="h-2.5 w-2.5 text-cyan-400" />
+                              ) : (
+                                <Code className="h-2.5 w-2.5 text-emerald-400" />
+                              )}
+                              <span>{lead.niche}</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Stage, Warmth & Overdue indicator */}

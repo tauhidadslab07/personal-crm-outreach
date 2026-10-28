@@ -29,6 +29,10 @@ import {
   Flame,
   Clock,
   RotateCcw,
+  Globe,
+  Building2,
+  Code,
+  Zap,
 } from 'lucide-react';
 import { exportLeadsToCSV } from '@/lib/csv-export';
 
@@ -53,6 +57,8 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   const selectedNicheFilter = useCRMStore((s) => s.selectedNicheFilter);
   const setSelectedNicheFilter = useCRMStore((s) => s.setSelectedNicheFilter);
   const setLeadNote = useCRMStore((s) => s.setLeadNote);
+  const updateLead = useCRMStore((s) => s.updateLead);
+  const autoClassifyAllLeadsNiches = useCRMStore((s) => s.autoClassifyAllLeadsNiches);
 
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
   const [filterStage, setFilterStage] = useState<string>('all');
@@ -60,6 +66,7 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   const [filterCountry, setFilterCountry] = useState<string>('all');
   const [filterDate, setFilterDate] = useState<string>('all');
   const [filterWarmth, setFilterWarmth] = useState<string>('all');
+  const [filterWebsiteOnly, setFilterWebsiteOnly] = useState<boolean>(false);
   const [mobileKanbanStage, setMobileKanbanStage] = useState<number | 'all'>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [editingNoteLeadId, setEditingNoteLeadId] = useState<string | null>(null);
@@ -85,6 +92,28 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
     if (whatsappUrl) {
       window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
     }
+  };
+
+  // Niche & Website Counts
+  const agencyCount = useMemo(
+    () => leads.filter((l) => l.niche === 'Website Development Agency').length,
+    [leads]
+  );
+  const developerCount = useMemo(
+    () => leads.filter((l) => l.niche === 'Website Developer').length,
+    [leads]
+  );
+  const websiteCount = useMemo(
+    () => leads.filter((l) => Boolean(l.website)).length,
+    [leads]
+  );
+
+  const handleAutoClassifyAll = () => {
+    const { agencyCount: agCount, developerCount: devCount } = autoClassifyAllLeadsNiches();
+    setToastMessage(
+      `✓ Auto-classified all leads: ${agCount} Agencies (🏢) and ${devCount} Developers (💻)!`
+    );
+    setTimeout(() => setToastMessage(null), 4500);
   };
 
   // Extract unique countries
@@ -138,9 +167,10 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         const matchName = lead.name.toLowerCase().includes(q);
         const matchPhone = lead.phoneRaw.includes(q);
         const matchCompany = lead.company?.toLowerCase().includes(q);
+        const matchWebsite = lead.website?.toLowerCase().includes(q);
         const matchCountry = lead.countryName.toLowerCase().includes(q);
         const matchNiche = lead.niche?.toLowerCase().includes(q);
-        if (!matchName && !matchPhone && !matchCompany && !matchCountry && !matchNiche) return false;
+        if (!matchName && !matchPhone && !matchCompany && !matchWebsite && !matchCountry && !matchNiche) return false;
       }
 
       if (filterStage !== 'all' && lead.currentStage !== parseInt(filterStage, 10)) {
@@ -162,6 +192,10 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
       }
 
       if (selectedNicheFilter !== 'all' && lead.niche !== selectedNicheFilter) {
+        return false;
+      }
+
+      if (filterWebsiteOnly && !lead.website) {
         return false;
       }
 
@@ -238,10 +272,89 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
           </button>
 
           <button
+            onClick={handleAutoClassifyAll}
+            title="Auto-classify all leads in your pipeline into 'Website Development Agency' or 'Website Developer'"
+            className="flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-950/30 px-3 py-1.5 text-xs font-bold text-cyan-300 hover:bg-cyan-900/50 hover:text-white transition-all active:scale-95 shadow-sm cursor-pointer"
+          >
+            <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+            <span className="hidden md:inline">⚡ Auto-Classify Niches</span>
+            <span className="md:hidden">Classify</span>
+          </button>
+
+          <button
             onClick={onOpenNewLead}
             className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition-all active:scale-95"
           >
             + Add Target Lead
+          </button>
+        </div>
+      </div>
+
+      {/* Quick Niche & Website Pills Bar */}
+      <div className="flex items-center justify-between gap-2 flex-wrap bg-zinc-900/40 p-2 rounded-2xl border border-zinc-800/70">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider pl-1.5 mr-1 flex items-center gap-1">
+            <Filter className="h-3 w-3 text-emerald-400" />
+            Niche Filter:
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedNicheFilter('all');
+              setFilterWebsiteOnly(false);
+            }}
+            className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              selectedNicheFilter === 'all' && !filterWebsiteOnly
+                ? 'bg-zinc-200 text-zinc-900 shadow-sm'
+                : 'bg-zinc-800/80 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800'
+            }`}
+          >
+            All Niches ({leads.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedNicheFilter('Website Development Agency');
+              setFilterWebsiteOnly(false);
+            }}
+            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              selectedNicheFilter === 'Website Development Agency' && !filterWebsiteOnly
+                ? 'bg-cyan-600 text-white shadow-md shadow-cyan-950/50 ring-1 ring-cyan-400/40'
+                : 'bg-cyan-950/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-900/30'
+            }`}
+          >
+            <Building2 className="h-3.5 w-3.5 text-cyan-400" />
+            <span>Website Development Agency ({agencyCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedNicheFilter('Website Developer');
+              setFilterWebsiteOnly(false);
+            }}
+            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              selectedNicheFilter === 'Website Developer' && !filterWebsiteOnly
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/50 ring-1 ring-emerald-400/40'
+                : 'bg-emerald-950/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-900/30'
+            }`}
+          >
+            <Code className="h-3.5 w-3.5 text-emerald-400" />
+            <span>Website Developer ({developerCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilterWebsiteOnly((prev) => !prev)}
+            className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              filterWebsiteOnly
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-950/50 ring-1 ring-blue-400/40'
+                : 'bg-blue-950/20 text-blue-300 border border-blue-500/30 hover:bg-blue-900/30'
+            }`}
+          >
+            <Globe className="h-3.5 w-3.5 text-blue-400" />
+            <span>With Website ({websiteCount})</span>
           </button>
         </div>
       </div>
@@ -435,9 +548,33 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                       </div>
                       <div className="flex items-center gap-1.5 flex-wrap text-xs text-zinc-400">
                         {lead.company && <span className="font-medium text-zinc-300">{lead.company}</span>}
+                        {lead.website && (
+                          <a
+                            href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] font-sans text-cyan-400 hover:text-cyan-300 hover:underline max-w-[160px] truncate"
+                            title={lead.website}
+                          >
+                            <Globe className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{lead.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</span>
+                            <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-70" />
+                          </a>
+                        )}
                         {lead.niche && (
-                          <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
-                            {lead.niche}
+                          <span
+                            className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold flex items-center gap-1 ${
+                              lead.niche === 'Website Development Agency'
+                                ? 'bg-cyan-500/10 border-cyan-500/25 text-cyan-300'
+                                : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
+                            }`}
+                          >
+                            {lead.niche === 'Website Development Agency' ? (
+                              <Building2 className="h-2.5 w-2.5 text-cyan-400" />
+                            ) : (
+                              <Code className="h-2.5 w-2.5 text-emerald-400" />
+                            )}
+                            <span>{lead.niche}</span>
                           </span>
                         )}
                         <LeadWarmthBadge lead={lead} stages={stages} />
@@ -614,12 +751,52 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                       </div>
                       <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                         {lead.company && (
-                          <span className="text-zinc-400 text-xs">{lead.company}</span>
+                          <span className="text-zinc-300 font-medium text-xs">{lead.company}</span>
+                        )}
+                        {lead.website && (
+                          <a
+                            href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md bg-cyan-950/40 border border-cyan-500/30 px-1.5 py-0.5 text-[10px] font-mono text-cyan-300 hover:text-cyan-200 hover:bg-cyan-900/40 transition-colors"
+                            title={lead.website}
+                          >
+                            <Globe className="h-3 w-3 text-cyan-400 shrink-0" />
+                            <span>{lead.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</span>
+                            <ExternalLink className="h-2.5 w-2.5 opacity-60" />
+                          </a>
                         )}
                         {lead.niche && (
-                          <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 text-[10px] font-semibold text-emerald-400">
-                            {lead.niche}
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next =
+                                lead.niche === 'Website Development Agency'
+                                  ? 'Website Developer'
+                                  : 'Website Development Agency';
+                              updateLead(lead.id, { niche: next });
+                              setToastMessage(`✓ "${lead.name}" switched to "${next}".`);
+                              setTimeout(() => setToastMessage(null), 2500);
+                            }}
+                            title="Click to toggle niche between Agency and Developer"
+                            className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold border flex items-center gap-1 transition-all cursor-pointer ${
+                              lead.niche === 'Website Development Agency'
+                                ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20'
+                                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+                            }`}
+                          >
+                            {lead.niche === 'Website Development Agency' ? (
+                              <>
+                                <Building2 className="h-3 w-3 text-cyan-400" />
+                                <span>Agency</span>
+                              </>
+                            ) : (
+                              <>
+                                <Code className="h-3 w-3 text-emerald-400" />
+                                <span>Developer</span>
+                              </>
+                            )}
+                          </button>
                         )}
                         {lead.createdAt && (
                           <span className="text-[10px] text-zinc-500 font-mono">
@@ -878,14 +1055,40 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                         </div>
                         <div className="flex items-center justify-between gap-1 flex-wrap">
                           {lead.company && (
-                            <p className="text-[11px] text-zinc-400 truncate max-w-[110px]">{lead.company}</p>
+                            <p className="text-[11px] text-zinc-300 font-medium truncate max-w-[110px]">{lead.company}</p>
                           )}
                           <ProspectTimeBadge isoCode={lead.isoCode} className="text-[9px] py-0 px-1" />
                         </div>
+                        {lead.website && (
+                          <div className="pt-0.5">
+                            <a
+                              href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[10px] font-mono text-cyan-400 hover:text-cyan-300 hover:underline max-w-[180px] truncate"
+                              title={lead.website}
+                            >
+                              <Globe className="h-2.5 w-2.5 text-cyan-400 shrink-0" />
+                              <span className="truncate">{lead.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</span>
+                              <ExternalLink className="h-2 w-2 opacity-60" />
+                            </a>
+                          </div>
+                        )}
                         {lead.niche && (
                           <div className="pt-0.5 flex items-center justify-between gap-1 flex-wrap">
-                            <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.2 text-[9px] font-semibold text-emerald-400">
-                              {lead.niche}
+                            <span
+                              className={`rounded-md border px-1.5 py-0.2 text-[9px] font-semibold flex items-center gap-1 ${
+                                lead.niche === 'Website Development Agency'
+                                  ? 'bg-cyan-500/10 border-cyan-500/25 text-cyan-300'
+                                  : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
+                              }`}
+                            >
+                              {lead.niche === 'Website Development Agency' ? (
+                                <Building2 className="h-2.5 w-2.5 text-cyan-400" />
+                              ) : (
+                                <Code className="h-2.5 w-2.5 text-emerald-400" />
+                              )}
+                              <span>{lead.niche}</span>
                             </span>
                             {lead.createdAt && (
                               <span className="text-[9px] text-zinc-500 font-mono">

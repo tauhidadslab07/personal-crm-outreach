@@ -21,6 +21,7 @@ import { addDays, CADENCE_INTERVAL_DAYS, getTodayISO, STAGE_TITLES } from './dat
 import { buildWhatsAppUrl, getPrefilledMessageForStage, WIN_BACK_TEMPLATES, interpolateTemplate } from './whatsapp';
 import { parsePhoneAndDetectCountry, sanitizePhoneForWhatsApp } from './phone';
 import { syncLeadToSupabase } from './supabase-sync';
+import { classifyLeadNiche } from './classifier';
 
 interface CRMState {
   leads: Lead[];
@@ -65,6 +66,7 @@ interface CRMState {
     phoneRaw: string;
     company?: string;
     email?: string;
+    website?: string;
     source?: Lead['source'];
     niche?: string;
     value?: number;
@@ -75,11 +77,14 @@ interface CRMState {
       name: string;
       phoneRaw: string;
       company?: string;
+      email?: string;
+      website?: string;
       source?: Lead['source'];
       niche?: string;
     }>,
     defaultNiche?: string
   ) => number;
+  autoClassifyAllLeadsNiches: () => { agencyCount: number; developerCount: number; updatedCount: number };
   updateLead: (id: string, updates: Partial<Lead>) => void;
   deleteLead: (id: string) => void;
   setKillSwitch: (leadId: string, status: KillSwitchStatus, reason?: string) => void;
@@ -270,6 +275,7 @@ export const useCRMStore = create<CRMState>()(
           flagEmoji: country.flagEmoji || '🌐',
           company: leadInput.company?.trim(),
           email: leadInput.email?.trim(),
+          website: leadInput.website?.trim(),
           source: leadInput.source || 'Other',
           niche: leadInput.niche?.trim() || 'General',
           currentStage: 0,
@@ -327,6 +333,8 @@ export const useCRMStore = create<CRMState>()(
             countryName: country.countryName || 'United States',
             flagEmoji: country.flagEmoji || '🌐',
             company: input.company?.trim(),
+            email: input.email?.trim(),
+            website: input.website?.trim(),
             source: input.source || 'Other',
             niche: input.niche?.trim() || defaultNiche?.trim() || 'General',
             currentStage: 0,
@@ -358,6 +366,37 @@ export const useCRMStore = create<CRMState>()(
         }));
 
         return newLeads.length;
+      },
+
+      autoClassifyAllLeadsNiches: () => {
+        let agencyCount = 0;
+        let developerCount = 0;
+        let updatedCount = 0;
+
+        set((state) => {
+          const updatedLeads = state.leads.map((l) => {
+            const classified = classifyLeadNiche({
+              name: l.name,
+              company: l.company,
+              website: l.website,
+              email: l.email,
+            });
+
+            if (classified === 'Website Development Agency') agencyCount++;
+            else developerCount++;
+
+            if (l.niche !== classified) updatedCount++;
+
+            return {
+              ...l,
+              niche: classified,
+            };
+          });
+
+          return { leads: updatedLeads };
+        });
+
+        return { agencyCount, developerCount, updatedCount };
       },
 
       updateLead: (id, updates) => {

@@ -42,6 +42,7 @@ export type Lead = {
   flagEmoji: string; // "🇧🇩"
   company?: string;
   email?: string;
+  website?: string;
   source: LeadSource;
   niche?: string;
   currentStage: CadenceStageNumber;

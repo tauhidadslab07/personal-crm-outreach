@@ -42,6 +42,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [email, setEmail] = useState('');
+  const [website, setWebsite] = useState('');
   const [niche, setNiche] = useState(initialNiche || niches[0]?.name || 'General');
   const [allowDuplicate, setAllowDuplicate] = useState(false);
 
@@ -196,6 +197,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
       phoneRaw: fullPhoneNumber.trim(),
       company: cleanedCompanyName.trim() || undefined,
       email: email.trim() || undefined,
+      website: website.trim() || undefined,
       niche,
       tags: [],
     });
@@ -205,6 +207,7 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
     setLocalNumber('');
     setCompany('');
     setEmail('');
+    setWebsite('');
     setAllowDuplicate(false);
     onClose();
   };
@@ -444,6 +447,21 @@ export const NewLeadModal: React.FC<NewLeadModalProps> = ({ isOpen, onClose, ini
               }`}
             />
           </div>
+        </div>
+
+        {/* Website URL */}
+        <div>
+          <label className="block text-xs font-semibold text-zinc-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+            <Globe className="h-3.5 w-3.5 text-cyan-400" />
+            Website URL / Portfolio <span className="text-[10px] lowercase text-zinc-500 font-normal">(optional)</span>
+          </label>
+          <input
+            type="text"
+            placeholder="e.g. apextech.com or https://company.com"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+            className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 px-3.5 py-2 text-sm text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all font-mono"
+          />
         </div>
 
         {/* Niche / Industry */}
