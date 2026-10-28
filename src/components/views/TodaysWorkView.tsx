@@ -7,6 +7,8 @@ import { PhoneBadge } from '../common/PhoneBadge';
 import { CountryBadge } from '../common/CountryBadge';
 import { ProspectTimeBadge } from '../common/ProspectTimeBadge';
 import { LeadWarmthBadge } from '../common/LeadWarmthBadge';
+import { DomainBadge } from '../common/DomainBadge';
+import { NicheDropdown } from '../common/NicheDropdown';
 import { calculateLeadWarmth } from '@/lib/warmth';
 import { ObjectionBusterModal } from '../modals/ObjectionBusterModal';
 import { SnoozeModal } from '../modals/SnoozeModal';
@@ -839,8 +841,8 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                           </div>
                         </div>
 
-                        {/* Phone & Niche */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                        {/* Phone, Website Domain & Dropdown Niche Selector */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1">
                           <PhoneBadge
                             phone={lead.phoneRaw}
                             sanitizedPhone={lead.phoneSanitized}
@@ -848,11 +850,24 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                             isoCode={lead.isoCode}
                             prefilledText={personalizedMessage}
                           />
-                          {lead.niche && (
-                            <span className="rounded-md bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-400">
-                              {lead.niche}
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <DomainBadge
+                              leadId={lead.id}
+                              website={lead.website}
+                              email={lead.email}
+                              leadName={lead.name}
+                            />
+                            <NicheDropdown
+                              leadId={lead.id}
+                              leadName={lead.name}
+                              currentNiche={lead.niche}
+                              size="sm"
+                              onChange={(n) => {
+                                setToastMessage(`✓ "${lead.name}" classified as "${n}".`);
+                                setTimeout(() => setToastMessage(null), 2500);
+                              }}
+                            />
+                          </div>
                         </div>
 
                         {/* Win-Back Angle Selector */}
@@ -1058,37 +1073,25 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
                               {lead.company}
                             </span>
                           )}
-                          {lead.website && (
-                            <a
-                              href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 rounded-md bg-cyan-950/40 border border-cyan-500/30 px-1.5 py-0.5 text-[11px] font-mono text-cyan-300 hover:text-cyan-200 hover:bg-cyan-900/40 transition-colors"
-                              title={lead.website}
-                            >
-                              <Globe className="h-3 w-3 text-cyan-400 shrink-0" />
-                              <span className="truncate max-w-[150px]">
-                                {lead.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
-                              </span>
-                              <ExternalLink className="h-2.5 w-2.5 opacity-60" />
-                            </a>
-                          )}
-                          {lead.niche && (
-                            <span
-                              className={`rounded-md border px-1.5 py-0.5 text-[10px] font-bold flex items-center gap-1 ${
-                                lead.niche === 'Website Development Agency'
-                                  ? 'bg-cyan-500/10 border-cyan-500/25 text-cyan-300'
-                                  : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
-                              }`}
-                            >
-                              {lead.niche === 'Website Development Agency' ? (
-                                <Building2 className="h-2.5 w-2.5 text-cyan-400" />
-                              ) : (
-                                <Code className="h-2.5 w-2.5 text-emerald-400" />
-                              )}
-                              <span>{lead.niche}</span>
-                            </span>
-                          )}
+                        </div>
+                        {/* Prominently Visual Website Domain & Dropdown Niche Selector */}
+                        <div className="pt-1 flex items-center gap-2 flex-wrap">
+                          <DomainBadge
+                            leadId={lead.id}
+                            website={lead.website}
+                            email={lead.email}
+                            leadName={lead.name}
+                          />
+                          <NicheDropdown
+                            leadId={lead.id}
+                            leadName={lead.name}
+                            currentNiche={lead.niche}
+                            size="sm"
+                            onChange={(n) => {
+                              setToastMessage(`✓ "${lead.name}" classified as "${n}".`);
+                              setTimeout(() => setToastMessage(null), 2500);
+                            }}
+                          />
                         </div>
                       </div>
 

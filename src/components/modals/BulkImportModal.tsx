@@ -23,6 +23,7 @@ import { CountryBadge } from '../common/CountryBadge';
 import { cleanCompanyName, cleanContactName } from '@/lib/cleaner';
 import { parseExcelWorkbook, RawImportLead } from '@/lib/excel';
 import { classifyLeadNiche, ClassifiedNiche } from '@/lib/classifier';
+import { getEffectiveDomain, formatUrlForVisiting } from '@/lib/domain';
 
 interface BulkImportModalProps {
   isOpen: boolean;
@@ -730,23 +731,28 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
                         </div>
 
                         {/* Phone & Website URL Row */}
-                        <div className="flex items-center gap-2.5 font-mono text-zinc-400 text-[11px] flex-wrap">
+                        <div className="flex items-center gap-2 font-mono text-zinc-400 text-[11px] flex-wrap">
                           <span>{row.phoneRaw || 'Missing phone'}</span>
-                          {row.website && (
-                            <a
-                              href={row.website}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-[11px] font-sans text-cyan-400 hover:text-cyan-300 hover:underline max-w-[180px] truncate"
-                              title={row.website}
-                            >
-                              <Globe className="h-3 w-3 shrink-0" />
-                              <span className="truncate">
-                                {row.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}
-                              </span>
-                              <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-70" />
-                            </a>
-                          )}
+                          {(() => {
+                            const { domain } = getEffectiveDomain(row.website, row.email);
+                            if (domain) {
+                              const visitUrl = formatUrlForVisiting(row.website || domain);
+                              return (
+                                <a
+                                  href={visitUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 rounded-md bg-cyan-950/50 border border-cyan-500/30 px-1.5 py-0.2 text-[10px] font-mono text-cyan-300 hover:text-cyan-200 hover:bg-cyan-900/40 transition-colors max-w-[170px] truncate"
+                                  title={`Visit domain: ${visitUrl}`}
+                                >
+                                  <Globe className="h-2.5 w-2.5 text-cyan-400 shrink-0" />
+                                  <span className="truncate">{domain}</span>
+                                  <ExternalLink className="h-2 w-2 opacity-60 shrink-0" />
+                                </a>
+                              );
+                            }
+                            return <span className="text-[10px] text-zinc-600 font-sans">No website</span>;
+                          })()}
                           {row.isDuplicate && row.duplicateReason && (
                             <span className="text-[10px] text-amber-400 font-sans">
                               • {row.duplicateReason}
@@ -756,31 +762,31 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
                       </div>
                     </div>
 
-                    {/* Right Badges: Niche classification & Validity */}
+                    {/* Right Badges: Niche classification Dropdown & Validity */}
                     <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                      {/* Interactive Niche Badge (Click to toggle Agency vs Developer) */}
-                      <button
-                        type="button"
-                        onClick={() => toggleRowNiche(originalIndex)}
-                        title="Click to toggle between Website Development Agency and Website Developer"
-                        className={`rounded-lg px-2.5 py-0.5 text-[10px] font-bold border flex items-center gap-1 transition-all cursor-pointer ${
+                      {/* Interactive Niche Dropdown (Select Agency vs Developer) */}
+                      <select
+                        value={row.niche}
+                        onChange={(e) => {
+                          const val = e.target.value as ClassifiedNiche;
+                          setRowNicheOverrides((prev) => ({
+                            ...prev,
+                            [originalIndex]: val,
+                          }));
+                        }}
+                        className={`rounded-lg px-2 py-1 text-[11px] font-bold border transition-all cursor-pointer focus:outline-none ${
                           row.niche === 'Website Development Agency'
-                            ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30 hover:bg-cyan-500/25'
-                            : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/25'
+                            ? 'bg-cyan-950/70 text-cyan-300 border-cyan-500/40 hover:border-cyan-400'
+                            : 'bg-emerald-950/70 text-emerald-300 border-emerald-500/40 hover:border-emerald-400'
                         }`}
                       >
-                        {row.niche === 'Website Development Agency' ? (
-                          <>
-                            <Building2 className="h-3 w-3 text-cyan-400" />
-                            <span>Agency</span>
-                          </>
-                        ) : (
-                          <>
-                            <Code className="h-3 w-3 text-emerald-400" />
-                            <span>Developer</span>
-                          </>
-                        )}
-                      </button>
+                        <option value="Website Development Agency" className="bg-zinc-900 text-cyan-300 font-bold">
+                          🏢 Agency
+                        </option>
+                        <option value="Website Developer" className="bg-zinc-900 text-emerald-300 font-bold">
+                          💻 Developer
+                        </option>
+                      </select>
 
                       {row.country.isoCode ? (
                         <CountryBadge country={row.country} size="sm" showName={true} />
