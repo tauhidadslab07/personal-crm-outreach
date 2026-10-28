@@ -46,6 +46,7 @@ import {
   ExternalLink,
   Building2,
   Code,
+  Zap,
 } from 'lucide-react';
 import { buildGoogleCalendarUrl, downloadICSFile } from '@/lib/calendar';
 
@@ -80,6 +81,9 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   const senderProfiles = useCRMStore((s) => s.senderProfiles);
   const activeSenderProfileId = useCRMStore((s) => s.activeSenderProfileId);
   const setActiveSenderProfile = useCRMStore((s) => s.setActiveSenderProfile);
+  const queueFromPool = useCRMStore((s) => s.queueFromPool);
+  const moveAllUnsentStage0ToPool = useCRMStore((s) => s.moveAllUnsentStage0ToPool);
+  const setActiveTab = useCRMStore((s) => s.setActiveTab);
 
   const [activeBucket, setActiveBucket] = useState<'all' | 'engaged' | 'revival' | CadenceStageNumber>('all');
   const [warmthFilter, setWarmthFilter] = useState<'all' | 'hot' | 'warm' | 'cold'>('all');
@@ -162,10 +166,26 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   });
 
   // Calculate velocity progress for today:
-  // Total due today or completed today
-  const stagesDueTodayOrOverdue = relevantStages.filter(
-    (s) => !s.isSent && (s.scheduledDate === today || isOverdue(s.scheduledDate))
-  );
+  // Only Stage 0 if explicitly queued for today, and follow-up stages (1-5) when their scheduledDate arrives
+  const stagesDueTodayOrOverdue = relevantStages.filter((s) => {
+    if (s.isSent || !s.scheduledDate) return false;
+    const isDue = s.scheduledDate === today || isOverdue(s.scheduledDate);
+    if (!isDue) return false;
+    const lead = activeLeadMap.get(s.leadId);
+    if (!lead) return false;
+    if (s.stageNumber === 0) {
+      return lead.isQueuedForToday === true;
+    }
+    return true;
+  });
+
+  const poolLeadsCount = leads.filter(
+    (l) => l.killSwitchStatus === 'active' && l.currentStage === 0 && !l.isQueuedForToday
+  ).length;
+
+  const unsentStage0QueuedCount = leads.filter(
+    (l) => l.currentStage === 0 && l.isQueuedForToday
+  ).length;
 
   const stagesSentToday = stages.filter(
     (s) => s.isSent && s.sentDate && s.sentDate.startsWith(today)
@@ -533,6 +553,66 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
             <span>Anti-Spam Safety: Switch lines across outbound batches</span>
           </div>
         </div>
+
+        {/* Leads Pool Intake Banner: Pick leads into Today's Work */}
+        {poolLeadsCount > 0 && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-emerald-950/40 via-zinc-900 to-zinc-900/90 border border-emerald-500/40 p-3 sm:p-3.5 rounded-2xl shadow-lg shadow-emerald-950/30 animate-in fade-in">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="p-2 bg-emerald-500/20 rounded-xl border border-emerald-500/30 text-emerald-400 shrink-0">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-zinc-100 flex items-center gap-2 flex-wrap">
+                  <span>📥 {poolLeadsCount} Fresh Prospect{poolLeadsCount === 1 ? '' : 's'} in Leads Pool</span>
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.2 rounded-full font-bold">
+                    Controlled Daily Flow
+                  </span>
+                </p>
+                <p className="text-[11px] text-zinc-400 mt-0.5">
+                  Pick leads into Today&apos;s Work when you are ready to message, preventing queue clutter.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 flex-wrap">
+              <button
+                type="button"
+                onClick={() => {
+                  const added = queueFromPool(5, selectedNicheFilter === 'all' ? undefined : selectedNicheFilter);
+                  setToastMessage(`✓ Added ${added} leads from pool into Today's Work!`);
+                  setTimeout(() => setToastMessage(null), 3500);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-md shadow-emerald-950/50 cursor-pointer active:scale-95"
+              >
+                <Zap className="h-3.5 w-3.5 text-white" />
+                <span>+ Pick Top 5 for Today</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('leads')}
+                className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold transition-all cursor-pointer"
+              >
+                <span>Browse Leads Pool →</span>
+              </button>
+
+              {unsentStage0QueuedCount > 10 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const moved = moveAllUnsentStage0ToPool();
+                    setToastMessage(`✓ Moved ${moved} un-messaged leads back to Leads Pool.`);
+                    setTimeout(() => setToastMessage(null), 3500);
+                  }}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 text-[11px] font-medium transition-all cursor-pointer"
+                  title="Move un-messaged Stage 0 leads back to Leads Pool to focus on 5-streak"
+                >
+                  <span>🧹 Move Unsent to Pool ({unsentStage0QueuedCount})</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-zinc-800 pb-3">
           <div>

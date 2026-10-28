@@ -33,6 +33,9 @@ import {
   Building2,
   Code,
   Zap,
+  CheckSquare,
+  Square,
+  Plus,
 } from 'lucide-react';
 import { exportLeadsToCSV } from '@/lib/csv-export';
 
@@ -59,6 +62,11 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   const setLeadNote = useCRMStore((s) => s.setLeadNote);
   const updateLead = useCRMStore((s) => s.updateLead);
   const autoClassifyAllLeadsNiches = useCRMStore((s) => s.autoClassifyAllLeadsNiches);
+  const queueLeadForToday = useCRMStore((s) => s.queueLeadForToday);
+  const queueBatchLeadsForToday = useCRMStore((s) => s.queueBatchLeadsForToday);
+  const queueFromPool = useCRMStore((s) => s.queueFromPool);
+  const removeFromTodayQueue = useCRMStore((s) => s.removeFromTodayQueue);
+  const sendAndAutoAdvance = useCRMStore((s) => s.sendAndAutoAdvance);
 
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
   const [filterStage, setFilterStage] = useState<string>('all');
@@ -67,6 +75,8 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   const [filterDate, setFilterDate] = useState<string>('all');
   const [filterWarmth, setFilterWarmth] = useState<string>('all');
   const [filterWebsiteOnly, setFilterWebsiteOnly] = useState<boolean>(false);
+  const [queueStatusFilter, setQueueStatusFilter] = useState<'all' | 'pool' | 'queued' | 'in_cadence'>('all');
+  const [selectedLeadIds, setSelectedLeadIds] = useState<Set<string>>(new Set());
   const [mobileKanbanStage, setMobileKanbanStage] = useState<number | 'all'>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [editingNoteLeadId, setEditingNoteLeadId] = useState<string | null>(null);
@@ -77,7 +87,7 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   const handleMessageSent = (lead: Lead) => {
     advanceLeadStage(lead.id);
     const nextLabel = lead.currentStage < 5 ? `Follow-up ${lead.currentStage + 1}` : 'Completed';
-    setToastMessage(`✓ Message Sent! "${lead.name}" automatically moved to ${nextLabel}.`);
+    setToastMessage(`✓ Message Sent! "${lead.name}" moved to ${nextLabel}. Next touchpoint auto-scheduled.`);
     setTimeout(() => {
       setToastMessage(null);
     }, 4000);
@@ -94,7 +104,7 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
     }
   };
 
-  // Niche & Website Counts
+  // Niche, Queue & Website Counts
   const agencyCount = useMemo(
     () => leads.filter((l) => l.niche === 'Website Development Agency').length,
     [leads]
@@ -105,6 +115,24 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   );
   const websiteCount = useMemo(
     () => leads.filter((l) => Boolean(l.website)).length,
+    [leads]
+  );
+  const poolCount = useMemo(
+    () =>
+      leads.filter(
+        (l) => l.killSwitchStatus === 'active' && l.currentStage === 0 && !l.isQueuedForToday
+      ).length,
+    [leads]
+  );
+  const queuedTodayCount = useMemo(
+    () =>
+      leads.filter(
+        (l) => l.killSwitchStatus === 'active' && l.currentStage === 0 && l.isQueuedForToday
+      ).length,
+    [leads]
+  );
+  const cadenceActiveCount = useMemo(
+    () => leads.filter((l) => l.killSwitchStatus === 'active' && l.currentStage > 0).length,
     [leads]
   );
 
@@ -199,6 +227,21 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         return false;
       }
 
+      // Queue & Pipeline Pool Status Filter
+      if (queueStatusFilter === 'pool') {
+        if (lead.isQueuedForToday || lead.currentStage > 0 || lead.killSwitchStatus !== 'active') {
+          return false;
+        }
+      } else if (queueStatusFilter === 'queued') {
+        if (!lead.isQueuedForToday || lead.currentStage > 0 || lead.killSwitchStatus !== 'active') {
+          return false;
+        }
+      } else if (queueStatusFilter === 'in_cadence') {
+        if (lead.currentStage === 0 || lead.killSwitchStatus !== 'active') {
+          return false;
+        }
+      }
+
       // Date registered filter
       if (filterDate !== 'all') {
         const createdDate = (lead.createdAt || lead.updatedAt || '').split('T')[0];
@@ -217,7 +260,27 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
 
       return true;
     });
-  }, [leads, stages, searchQuery, filterStage, filterStatus, filterCountry, selectedNicheFilter, filterDate, filterWarmth, duplicateLeadIds]);
+  }, [leads, stages, searchQuery, filterStage, filterStatus, filterCountry, selectedNicheFilter, filterDate, filterWarmth, duplicateLeadIds, queueStatusFilter, filterWebsiteOnly]);
+
+  const isAllSelected =
+    filteredLeads.length > 0 && filteredLeads.every((l) => selectedLeadIds.has(l.id));
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedLeadIds(new Set());
+    } else {
+      setSelectedLeadIds(new Set(filteredLeads.map((l) => l.id)));
+    }
+  };
+
+  const handleToggleLead = (id: string) => {
+    setSelectedLeadIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
@@ -234,15 +297,15 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         <div>
           <h2 className="text-xl font-bold text-zinc-100 tracking-tight flex items-center gap-2">
             <Users className="h-5 w-5 text-emerald-400" />
-            Lead Hunting & Pipeline Directory ({filteredLeads.length})
+            Leads Directory &amp; Intake Pool ({filteredLeads.length})
           </h2>
           <p className="text-xs text-zinc-400 mt-0.5">
-            Auto-country detection, universal WhatsApp click-to-chat, and cadence status
+            Store all uploaded prospects in this pool, review websites, and selectively queue leads into Today&apos;s Work
           </p>
         </div>
 
         {/* View mode toggle & Add */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="flex rounded-xl border border-zinc-800 bg-zinc-900 p-1">
             <button
               onClick={() => setViewMode('table')}
@@ -283,9 +346,106 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
 
           <button
             onClick={onOpenNewLead}
-            className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition-all active:scale-95"
+            className="rounded-xl bg-emerald-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition-all active:scale-95 cursor-pointer"
           >
             + Add Target Lead
+          </button>
+        </div>
+      </div>
+
+      {/* Pool vs Today's Work Queue Switcher Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-zinc-900/60 p-2.5 sm:p-3 rounded-2xl border border-zinc-800/80">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider pl-1 mr-1 flex items-center gap-1">
+            <Zap className="h-3 w-3 text-amber-400" />
+            Queue Status:
+          </span>
+          <button
+            type="button"
+            onClick={() => setQueueStatusFilter('all')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              queueStatusFilter === 'all'
+                ? 'bg-zinc-200 text-zinc-900 shadow-sm'
+                : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            All Leads ({leads.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setQueueStatusFilter('pool')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              queueStatusFilter === 'pool'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/50 ring-1 ring-emerald-400/40'
+                : 'bg-emerald-950/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-900/30'
+            }`}
+          >
+            <span>📥 In Leads Pool ({poolCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setQueueStatusFilter('queued')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              queueStatusFilter === 'queued'
+                ? 'bg-amber-600 text-white shadow-md shadow-amber-950/50 ring-1 ring-amber-400/40'
+                : 'bg-amber-950/20 text-amber-300 border border-amber-500/30 hover:bg-amber-900/30'
+            }`}
+          >
+            <Zap className="h-3.5 w-3.5 text-amber-400" />
+            <span>In Today&apos;s Queue ({queuedTodayCount})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setQueueStatusFilter('in_cadence')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+              queueStatusFilter === 'in_cadence'
+                ? 'bg-cyan-600 text-white shadow-md shadow-cyan-950/50 ring-1 ring-cyan-400/40'
+                : 'bg-cyan-950/20 text-cyan-300 border border-cyan-500/30 hover:bg-cyan-900/30'
+            }`}
+          >
+            <span>🔁 In Active Cadence ({cadenceActiveCount})</span>
+          </button>
+        </div>
+
+        {/* Quick Batch Push to Today's Work Buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => {
+              const added = queueFromPool(5, 'Website Development Agency');
+              setToastMessage(
+                added > 0
+                  ? `✓ Added ${added} Agencies to Today's Work!`
+                  : 'No fresh agencies waiting in Leads Pool.'
+              );
+              setTimeout(() => setToastMessage(null), 3000);
+            }}
+            className="px-2.5 py-1.5 rounded-xl border border-cyan-500/30 bg-cyan-950/30 hover:bg-cyan-900/40 text-cyan-300 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+            title="Queue 5 fresh agencies from pool into Today's Work"
+          >
+            <Building2 className="h-3.5 w-3.5 text-cyan-400" />
+            <span>+ Queue 5 Agencies</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              const added = queueFromPool(5, 'Website Developer');
+              setToastMessage(
+                added > 0
+                  ? `✓ Added ${added} Developers to Today's Work!`
+                  : 'No fresh developers waiting in Leads Pool.'
+              );
+              setTimeout(() => setToastMessage(null), 3000);
+            }}
+            className="px-2.5 py-1.5 rounded-xl border border-emerald-500/30 bg-emerald-950/30 hover:bg-emerald-900/40 text-emerald-300 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+            title="Queue 5 fresh developers from pool into Today's Work"
+          >
+            <Code className="h-3.5 w-3.5 text-emerald-400" />
+            <span>+ Queue 5 Developers</span>
           </button>
         </div>
       </div>
@@ -533,51 +693,65 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                 >
                   {/* Card Header: Lead Name, Country, Time, Status */}
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <h4 className="font-bold text-zinc-100 text-sm truncate">
-                          {lead.name}
-                        </h4>
-                        {duplicateLeadIds.has(lead.id) && (
-                          <span className="rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 text-[9px] font-bold flex items-center gap-1 shrink-0">
-                            <ShieldAlert className="h-3 w-3" /> Duplicate
-                          </span>
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleLead(lead.id)}
+                        className="mt-0.5 text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer shrink-0"
+                        title={selectedLeadIds.has(lead.id) ? 'Deselect lead' : 'Select lead'}
+                      >
+                        {selectedLeadIds.has(lead.id) ? (
+                          <CheckSquare className="h-4 w-4 text-emerald-400" />
+                        ) : (
+                          <Square className="h-4 w-4 text-zinc-600" />
                         )}
-                        <CountryBadge country={lead} size="sm" showName={false} />
-                        <ProspectTimeBadge isoCode={lead.isoCode} />
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-wrap text-xs text-zinc-400">
-                        {lead.company && <span className="font-medium text-zinc-300">{lead.company}</span>}
-                        {lead.website && (
-                          <a
-                            href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[11px] font-sans text-cyan-400 hover:text-cyan-300 hover:underline max-w-[160px] truncate"
-                            title={lead.website}
-                          >
-                            <Globe className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{lead.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</span>
-                            <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-70" />
-                          </a>
-                        )}
-                        {lead.niche && (
-                          <span
-                            className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold flex items-center gap-1 ${
-                              lead.niche === 'Website Development Agency'
-                                ? 'bg-cyan-500/10 border-cyan-500/25 text-cyan-300'
-                                : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
-                            }`}
-                          >
-                            {lead.niche === 'Website Development Agency' ? (
-                              <Building2 className="h-2.5 w-2.5 text-cyan-400" />
-                            ) : (
-                              <Code className="h-2.5 w-2.5 text-emerald-400" />
-                            )}
-                            <span>{lead.niche}</span>
-                          </span>
-                        )}
-                        <LeadWarmthBadge lead={lead} stages={stages} />
+                      </button>
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <h4 className="font-bold text-zinc-100 text-sm truncate">
+                            {lead.name}
+                          </h4>
+                          {duplicateLeadIds.has(lead.id) && (
+                            <span className="rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/40 px-2 py-0.5 text-[9px] font-bold flex items-center gap-1 shrink-0">
+                              <ShieldAlert className="h-3 w-3" /> Duplicate
+                            </span>
+                          )}
+                          <CountryBadge country={lead} size="sm" showName={false} />
+                          <ProspectTimeBadge isoCode={lead.isoCode} />
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-wrap text-xs text-zinc-400">
+                          {lead.company && <span className="font-medium text-zinc-300">{lead.company}</span>}
+                          {lead.website && (
+                            <a
+                              href={lead.website.startsWith('http') ? lead.website : `https://${lead.website}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] font-sans text-cyan-400 hover:text-cyan-300 hover:underline max-w-[160px] truncate"
+                              title={lead.website}
+                            >
+                              <Globe className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{lead.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</span>
+                              <ExternalLink className="h-2.5 w-2.5 shrink-0 opacity-70" />
+                            </a>
+                          )}
+                          {lead.niche && (
+                            <span
+                              className={`rounded-md border px-2 py-0.5 text-[10px] font-semibold flex items-center gap-1 ${
+                                lead.niche === 'Website Development Agency'
+                                  ? 'bg-cyan-500/10 border-cyan-500/25 text-cyan-300'
+                                  : 'bg-emerald-500/10 border-emerald-500/25 text-emerald-300'
+                              }`}
+                            >
+                              {lead.niche === 'Website Development Agency' ? (
+                                <Building2 className="h-2.5 w-2.5 text-cyan-400" />
+                              ) : (
+                                <Code className="h-2.5 w-2.5 text-emerald-400" />
+                              )}
+                              <span>{lead.niche}</span>
+                            </span>
+                          )}
+                          <LeadWarmthBadge lead={lead} stages={stages} />
+                        </div>
                       </div>
                     </div>
 
@@ -611,12 +785,72 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                       flagEmoji={lead.flagEmoji}
                       isoCode={lead.isoCode}
                       prefilledText={targetStage?.templateScript || 'Hello!'}
+                      onClick={() => {
+                        if (lead.currentStage === 0 && !lead.isQueuedForToday) {
+                          queueLeadForToday(lead.id);
+                        }
+                      }}
                     />
 
                     <span className="rounded-lg bg-zinc-800/80 px-2.5 py-1 text-[10px] font-bold text-zinc-300 border border-zinc-700/60">
-                      {STAGE_TITLES[lead.currentStage]}
+                      {lead.currentStage === 0
+                        ? lead.isQueuedForToday
+                          ? "⚡ Today's Work"
+                          : '📥 Leads Pool'
+                        : STAGE_TITLES[lead.currentStage]}
                     </span>
                   </div>
+
+                  {/* Pool Intake / Queue Action */}
+                  {lead.currentStage === 0 && !lead.isQueuedForToday && (
+                    <div className="pt-2 border-t border-zinc-800/60">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          queueLeadForToday(lead.id);
+                          setToastMessage(`⚡ "${lead.name}" added to Today's Work!`);
+                          setTimeout(() => setToastMessage(null), 3000);
+                        }}
+                        className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-3 transition-all active:scale-95 shadow-md shadow-emerald-950/40 cursor-pointer"
+                      >
+                        <Zap className="h-3.5 w-3.5 text-amber-300" />
+                        <span>+ Add to Today&apos;s Work</span>
+                      </button>
+                    </div>
+                  )}
+
+                  {lead.currentStage === 0 && lead.isQueuedForToday && (
+                    <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-1.5 text-xs text-amber-300 font-semibold">
+                      <span className="flex items-center gap-1.5">
+                        <Zap className="h-3.5 w-3.5 text-amber-400" />
+                        <span>Queued in Today&apos;s Work</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          removeFromTodayQueue(lead.id);
+                          setToastMessage(`✓ "${lead.name}" moved back to Leads Pool.`);
+                          setTimeout(() => setToastMessage(null), 3000);
+                        }}
+                        className="text-zinc-400 hover:text-rose-400 text-xs font-bold cursor-pointer"
+                      >
+                        ✕ Remove
+                      </button>
+                    </div>
+                  )}
+
+                  {lead.currentStage > 0 && lead.killSwitchStatus === 'active' && lead.currentStage < 5 && (
+                    <div className="pt-2 border-t border-zinc-800/60">
+                      <button
+                        type="button"
+                        onClick={() => handleMessageSent(lead)}
+                        className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-3 transition-all active:scale-95 shadow-md shadow-emerald-950/40 cursor-pointer"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5 text-white" />
+                        <span>Message Sent → Follow-up {lead.currentStage + 1}</span>
+                      </button>
+                    </div>
+                  )}
 
                   {/* Notes if available */}
                   {lead.notes && (
@@ -720,10 +954,24 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
             <table className="w-full text-left text-xs min-w-[720px]">
               <thead className="border-b border-zinc-800 bg-zinc-900/90 text-[11px] font-bold uppercase tracking-wider text-zinc-400">
                 <tr>
+                  <th className="px-3 py-3 w-10 text-center">
+                    <button
+                      type="button"
+                      onClick={handleToggleSelectAll}
+                      className="text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
+                      title={isAllSelected ? 'Deselect All' : 'Select All'}
+                    >
+                      {isAllSelected ? (
+                        <CheckSquare className="h-4 w-4 text-emerald-400" />
+                      ) : (
+                        <Square className="h-4 w-4" />
+                      )}
+                    </button>
+                  </th>
                   <th className="px-4 py-3">Lead & Company</th>
                   <th className="px-4 py-3">Country & Flag</th>
                   <th className="px-4 py-3">WhatsApp Click-to-Chat</th>
-                  <th className="px-4 py-3">Cadence Stage</th>
+                  <th className="px-4 py-3">Queue & Cadence</th>
                   <th className="px-4 py-3">Message Status</th>
                   <th className="px-4 py-3">Pipeline Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>
@@ -740,6 +988,21 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
 
                 return (
                   <tr key={lead.id} className="hover:bg-zinc-800/40 transition-colors">
+                    <td className="px-3 py-3.5 text-center w-10">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleLead(lead.id)}
+                        className="text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
+                        title={selectedLeadIds.has(lead.id) ? 'Deselect' : 'Select'}
+                      >
+                        {selectedLeadIds.has(lead.id) ? (
+                          <CheckSquare className="h-4 w-4 text-emerald-400" />
+                        ) : (
+                          <Square className="h-4 w-4 text-zinc-600" />
+                        )}
+                      </button>
+                    </td>
+
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-bold text-zinc-100 text-sm">{lead.name}</span>
@@ -828,26 +1091,92 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
                         sanitizedPhone={lead.phoneSanitized}
                         flagEmoji={lead.flagEmoji}
                         isoCode={lead.isoCode}
+                        prefilledText={targetStage?.templateScript || 'Hello!'}
+                        onClick={() => {
+                          if (lead.currentStage === 0 && !lead.isQueuedForToday) {
+                            queueLeadForToday(lead.id);
+                          }
+                        }}
                       />
                     </td>
 
                     <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="rounded-lg bg-zinc-800 px-2.5 py-1 text-xs font-semibold text-zinc-200 border border-zinc-700/60 whitespace-nowrap">
-                          {STAGE_TITLES[lead.currentStage]}
-                        </span>
-                        {lead.killSwitchStatus === 'active' && lead.currentStage < 5 && (
-                          <button
-                            type="button"
-                            onClick={() => handleMessageSent(lead)}
-                            title={`Click to mark message as sent and automatically advance lead to Follow-up ${lead.currentStage + 1}`}
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 text-xs font-bold transition-all active:scale-95 shadow-md shadow-emerald-950/40 whitespace-nowrap cursor-pointer"
-                          >
-                            <CheckCircle2 className="h-3.5 w-3.5 text-white" />
-                            <span>Message Sent → FU {lead.currentStage + 1}</span>
-                          </button>
-                        )}
-                      </div>
+                      {lead.currentStage === 0 ? (
+                        !lead.isQueuedForToday ? (
+                          <div className="flex flex-col gap-1.5 items-start">
+                            <span className="rounded-lg bg-zinc-800/90 text-zinc-300 border border-zinc-700/60 px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap">
+                              📥 In Leads Pool
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                queueLeadForToday(lead.id);
+                                setToastMessage(`⚡ "${lead.name}" added to Today's Work!`);
+                                setTimeout(() => setToastMessage(null), 3000);
+                              }}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40 px-2.5 py-1 text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-sm whitespace-nowrap"
+                              title="Queue lead into Today's Work to message today"
+                            >
+                              <Zap className="h-3 w-3 text-amber-400" />
+                              <span>+ Add to Today</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-1.5 items-start">
+                            <div className="flex items-center gap-1.5">
+                              <span className="rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 text-[11px] font-bold whitespace-nowrap flex items-center gap-1">
+                                <Zap className="h-3 w-3 text-amber-400" />
+                                <span>Today&apos;s Work</span>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  removeFromTodayQueue(lead.id);
+                                  setToastMessage(`✓ "${lead.name}" moved back to Leads Pool.`);
+                                  setTimeout(() => setToastMessage(null), 3000);
+                                }}
+                                className="text-zinc-500 hover:text-rose-400 text-xs font-semibold cursor-pointer transition-colors"
+                                title="Remove from Today's Work and return to Pool"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                            {lead.killSwitchStatus === 'active' && (
+                              <button
+                                type="button"
+                                onClick={() => handleMessageSent(lead)}
+                                title="Mark message as sent and schedule Follow-up 1 (+2 days)"
+                                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-0.5 text-[11px] font-bold transition-all active:scale-95 shadow cursor-pointer whitespace-nowrap"
+                              >
+                                <CheckCircle2 className="h-3 w-3 text-white" />
+                                <span>Sent → FU 1</span>
+                              </button>
+                            )}
+                          </div>
+                        )
+                      ) : (
+                        <div className="flex flex-col gap-1.5 items-start">
+                          <span className="rounded-lg bg-cyan-950/40 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 text-[11px] font-bold whitespace-nowrap">
+                            🔁 {STAGE_TITLES[lead.currentStage]}
+                          </span>
+                          {targetStage?.scheduledDate && (
+                            <span className="text-[10px] text-zinc-400 font-mono">
+                              Due: {targetStage.scheduledDate}
+                            </span>
+                          )}
+                          {lead.killSwitchStatus === 'active' && lead.currentStage < 5 && (
+                            <button
+                              type="button"
+                              onClick={() => handleMessageSent(lead)}
+                              title={`Click to mark message as sent and automatically advance lead to Follow-up ${lead.currentStage + 1}`}
+                              className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-0.5 text-[11px] font-bold transition-all active:scale-95 shadow cursor-pointer whitespace-nowrap"
+                            >
+                              <CheckCircle2 className="h-3 w-3 text-white" />
+                              <span>Sent → FU {lead.currentStage + 1}</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </td>
 
                     <td className="px-4 py-3.5">
@@ -1293,6 +1622,36 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
         </div>
       </div>
     )}
+
+      {/* Floating Batch Selection Bar */}
+      {selectedLeadIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-zinc-900/95 backdrop-blur border border-emerald-500/50 shadow-2xl shadow-emerald-950/80 px-4 py-2.5 rounded-2xl animate-in fade-in slide-in-from-bottom-4">
+          <span className="text-xs font-bold text-zinc-200">
+            <strong className="text-emerald-400">{selectedLeadIds.size}</strong> selected
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const ids = Array.from(selectedLeadIds);
+              queueBatchLeadsForToday(ids);
+              setToastMessage(`✓ Added ${ids.length} lead${ids.length === 1 ? '' : 's'} to Today's Work!`);
+              setSelectedLeadIds(new Set());
+              setTimeout(() => setToastMessage(null), 3000);
+            }}
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-md shadow-emerald-950 cursor-pointer"
+          >
+            <Zap className="h-3.5 w-3.5 text-amber-300" />
+            <span>Add to Today&apos;s Work</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedLeadIds(new Set())}
+            className="text-xs text-zinc-400 hover:text-zinc-200 px-2 py-1 cursor-pointer font-medium"
+          >
+            Deselect
+          </button>
+        </div>
+      )}
 
       {/* Instant Objection Playbook & Voice Note Scripts Modal */}
       <ObjectionBusterModal

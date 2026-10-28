@@ -51,6 +51,7 @@ export type Lead = {
   responseStatus?: LeadResponseStatus;
   isCadencePaused?: boolean;
   cadencePauseReason?: string;
+  isQueuedForToday?: boolean;
   notes?: string;
   value?: number; // Potential deal size in USD
   tags: string[];

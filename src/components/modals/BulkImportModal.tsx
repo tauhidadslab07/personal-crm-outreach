@@ -810,17 +810,22 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
         )}
 
         {/* Modal Actions */}
-        <div className="flex items-center justify-between pt-3 border-t border-zinc-800">
-          <span className="text-xs text-zinc-400">
-            {importableCount > 0
-              ? `${importableCount} lead${importableCount === 1 ? '' : 's'} ready to batch insert (${agencyCount} Agencies, ${devCount} Developers)`
-              : 'Select an Excel file or paste rows above'}
-          </span>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-zinc-800">
+          <div className="space-y-0.5">
+            <span className="text-xs text-zinc-300 font-semibold block">
+              {importableCount > 0
+                ? `${importableCount} lead${importableCount === 1 ? '' : 's'} ready (${agencyCount} Agencies, ${devCount} Developers)`
+                : 'Select an Excel file or paste rows above'}
+            </span>
+            <span className="text-[11px] text-zinc-500 block">
+              📥 All leads enter your Leads Pool. You can pick and queue them into Today&apos;s Work anytime.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-all"
+              className="rounded-xl px-4 py-2 text-xs font-semibold text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-all cursor-pointer"
             >
               Cancel
             </button>
@@ -831,7 +836,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
               className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-emerald-950/50 hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 transition-all disabled:opacity-40 disabled:pointer-events-none active:scale-95 cursor-pointer"
             >
               <UploadCloud className="h-4 w-4" />
-              Batch Import {importableCount} Leads
+              Import {importableCount} Leads into Pool
             </button>
           </div>
         </div>

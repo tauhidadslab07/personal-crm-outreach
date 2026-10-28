@@ -9,12 +9,20 @@ export const BottomNav: React.FC = () => {
   const activeTab = useCRMStore((s) => s.activeTab);
   const setActiveTab = useCRMStore((s) => s.setActiveTab);
   const stages = useCRMStore((s) => s.stages);
+  const leads = useCRMStore((s) => s.leads);
   const meetings = useCRMStore((s) => s.meetings);
 
   const today = getTodayISO();
-  const pendingOutreachCount = stages.filter(
-    (s) => !s.isSent && (s.scheduledDate === today || isOverdue(s.scheduledDate))
-  ).length;
+  const leadMap = new Map(leads.map((l) => [l.id, l]));
+  const pendingOutreachCount = stages.filter((s) => {
+    if (s.isSent || !s.scheduledDate) return false;
+    const isDue = s.scheduledDate === today || isOverdue(s.scheduledDate);
+    if (!isDue) return false;
+    const lead = leadMap.get(s.leadId);
+    if (!lead || lead.killSwitchStatus !== 'active') return false;
+    if (s.stageNumber === 0) return lead.isQueuedForToday === true;
+    return true;
+  }).length;
 
   const todayMeetingsCount = meetings.filter(
     (m) => m.meetingDate === today && m.outcome === 'pending'

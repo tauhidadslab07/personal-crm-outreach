@@ -71,6 +71,7 @@ interface CRMState {
     niche?: string;
     value?: number;
     tags?: string[];
+    queueForToday?: boolean;
   }) => Lead;
   addBulkLeads: (
     leadsInput: Array<{
@@ -82,9 +83,15 @@ interface CRMState {
       source?: Lead['source'];
       niche?: string;
     }>,
-    defaultNiche?: string
+    defaultNiche?: string,
+    queueCountImmediately?: number
   ) => number;
   autoClassifyAllLeadsNiches: () => { agencyCount: number; developerCount: number; updatedCount: number };
+  queueLeadForToday: (leadId: string) => void;
+  queueBatchLeadsForToday: (leadIds: string[]) => number;
+  queueFromPool: (count: number, niche?: string) => number;
+  removeFromTodayQueue: (leadId: string) => void;
+  moveAllUnsentStage0ToPool: () => number;
   updateLead: (id: string, updates: Partial<Lead>) => void;
   deleteLead: (id: string) => void;
   setKillSwitch: (leadId: string, status: KillSwitchStatus, reason?: string) => void;
@@ -280,13 +287,14 @@ export const useCRMStore = create<CRMState>()(
           niche: leadInput.niche?.trim() || 'General',
           currentStage: 0,
           killSwitchStatus: 'active',
+          isQueuedForToday: Boolean(leadInput.queueForToday),
           value: leadInput.value || 0,
           tags: leadInput.tags || [],
           createdAt: today,
           updatedAt: today,
         };
 
-        // Create initial cadence stage (Stage 0) due today
+        // Create initial cadence stage (Stage 0). If queued for today, scheduledDate is today, else empty (in pool).
         const templates = get().templates;
         const initialScript = getPrefilledMessageForStage(newLead, 0, templates);
         const initialStage: CadenceStage = {
@@ -294,7 +302,7 @@ export const useCRMStore = create<CRMState>()(
           leadId: id,
           stageNumber: 0,
           title: STAGE_TITLES[0],
-          scheduledDate: today,
+          scheduledDate: leadInput.queueForToday ? today : '',
           isSent: false,
           viewStatus: 'unchecked',
           templateScript: initialScript,
@@ -311,17 +319,19 @@ export const useCRMStore = create<CRMState>()(
         return newLead;
       },
 
-      addBulkLeads: (leadsInput, defaultNiche) => {
+      addBulkLeads: (leadsInput, defaultNiche, queueCountImmediately) => {
         const today = getTodayISO();
         const templates = get().templates;
         const newLeads: Lead[] = [];
         const newStages: CadenceStage[] = [];
+        const queueCount = queueCountImmediately || 0;
 
-        for (const input of leadsInput) {
-          if (!input.name || !input.phoneRaw) continue;
+        leadsInput.forEach((input, index) => {
+          if (!input.name || !input.phoneRaw) return;
           const country = parsePhoneAndDetectCountry(input.phoneRaw);
           const sanitized = sanitizePhoneForWhatsApp(country.e164 || input.phoneRaw);
           const id = `lead-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+          const isQueued = index < queueCount;
 
           const lead: Lead = {
             id,
@@ -339,6 +349,7 @@ export const useCRMStore = create<CRMState>()(
             niche: input.niche?.trim() || defaultNiche?.trim() || 'General',
             currentStage: 0,
             killSwitchStatus: 'active',
+            isQueuedForToday: isQueued,
             tags: ['Bulk Imported'],
             createdAt: today,
             updatedAt: today,
@@ -350,7 +361,7 @@ export const useCRMStore = create<CRMState>()(
             leadId: id,
             stageNumber: 0,
             title: STAGE_TITLES[0],
-            scheduledDate: today,
+            scheduledDate: isQueued ? today : '',
             isSent: false,
             viewStatus: 'unchecked',
             templateScript: script,
@@ -358,7 +369,7 @@ export const useCRMStore = create<CRMState>()(
 
           newLeads.push(lead);
           newStages.push(stage);
-        }
+        });
 
         set((state) => ({
           leads: [...newLeads, ...state.leads],
@@ -397,6 +408,108 @@ export const useCRMStore = create<CRMState>()(
         });
 
         return { agencyCount, developerCount, updatedCount };
+      },
+
+      queueLeadForToday: (leadId) => {
+        const today = getTodayISO();
+        set((state) => {
+          const updatedLeads = state.leads.map((l) =>
+            l.id === leadId ? { ...l, isQueuedForToday: true, updatedAt: today } : l
+          );
+
+          const updatedStages = state.stages.map((s) => {
+            if (s.leadId === leadId && s.stageNumber === 0 && !s.isSent) {
+              return { ...s, scheduledDate: today };
+            }
+            return s;
+          });
+
+          return { leads: updatedLeads, stages: updatedStages };
+        });
+      },
+
+      queueBatchLeadsForToday: (leadIds) => {
+        const today = getTodayISO();
+        const idSet = new Set(leadIds);
+        let count = 0;
+
+        set((state) => {
+          const updatedLeads = state.leads.map((l) => {
+            if (idSet.has(l.id)) {
+              count++;
+              return { ...l, isQueuedForToday: true, updatedAt: today };
+            }
+            return l;
+          });
+
+          const updatedStages = state.stages.map((s) => {
+            if (idSet.has(s.leadId) && s.stageNumber === 0 && !s.isSent) {
+              return { ...s, scheduledDate: today };
+            }
+            return s;
+          });
+
+          return { leads: updatedLeads, stages: updatedStages };
+        });
+
+        return count;
+      },
+
+      queueFromPool: (count, niche) => {
+        const state = get();
+        const candidates = state.leads
+          .filter((l) => {
+            if (l.killSwitchStatus !== 'active' || l.currentStage !== 0 || l.isQueuedForToday) {
+              return false;
+            }
+            if (niche && niche !== 'all' && l.niche !== niche) return false;
+            return true;
+          })
+          .slice(0, count);
+
+        if (candidates.length === 0) return 0;
+        return get().queueBatchLeadsForToday(candidates.map((c) => c.id));
+      },
+
+      removeFromTodayQueue: (leadId) => {
+        set((state) => {
+          const updatedLeads = state.leads.map((l) =>
+            l.id === leadId ? { ...l, isQueuedForToday: false } : l
+          );
+
+          const updatedStages = state.stages.map((s) => {
+            if (s.leadId === leadId && s.stageNumber === 0 && !s.isSent) {
+              return { ...s, scheduledDate: '' };
+            }
+            return s;
+          });
+
+          return { leads: updatedLeads, stages: updatedStages };
+        });
+      },
+
+      moveAllUnsentStage0ToPool: () => {
+        let movedCount = 0;
+        set((state) => {
+          const updatedLeads = state.leads.map((l) => {
+            if (l.currentStage === 0 && (l.isQueuedForToday || l.isQueuedForToday === undefined)) {
+              movedCount++;
+              return { ...l, isQueuedForToday: false };
+            }
+            return l;
+          });
+
+          const updatedStages = state.stages.map((s) => {
+            if (s.stageNumber === 0 && !s.isSent && s.scheduledDate) {
+              return { ...s, scheduledDate: '' };
+            }
+            return s;
+          });
+
+          return { leads: updatedLeads, stages: updatedStages };
+        });
+
+        return movedCount;
       },
 
       updateLead: (id, updates) => {
@@ -484,7 +597,8 @@ export const useCRMStore = create<CRMState>()(
 
         if (currentStageNum < 5) {
           const nextStageNum = (currentStageNum + 1) as CadenceStageNumber;
-          const nextScheduledDate = today; // Immediately ready for the next follow-up queue
+          const intervalDays = CADENCE_INTERVAL_DAYS[currentStageNum] ?? 2;
+          const nextScheduledDate = addDays(today, intervalDays);
           const nextScript = getPrefilledMessageForStage(lead, nextStageNum, state.templates);
 
           const existingNextStage = state.stages.find(
@@ -534,7 +648,7 @@ export const useCRMStore = create<CRMState>()(
             stages: updatedStages,
             leads: s.leads.map((ld) =>
               ld.id === lead.id
-                ? { ...ld, currentStage: nextStageNum, updatedAt: today }
+                ? { ...ld, currentStage: nextStageNum, isQueuedForToday: false, updatedAt: today }
                 : ld
             ),
           }));
@@ -571,7 +685,8 @@ export const useCRMStore = create<CRMState>()(
 
         if (currentStageNum < 5) {
           const nextStageNum = (currentStageNum + 1) as CadenceStageNumber;
-          const nextScheduledDate = today; // Immediately ready for the next follow-up queue
+          const intervalDays = CADENCE_INTERVAL_DAYS[currentStageNum] ?? 2;
+          const nextScheduledDate = addDays(today, intervalDays);
           const nextScript = getPrefilledMessageForStage(lead, nextStageNum, state.templates);
 
           const existingNextStage = state.stages.find(
@@ -622,7 +737,7 @@ export const useCRMStore = create<CRMState>()(
             stages: updatedStages,
             leads: s.leads.map((ld) =>
               ld.id === lead.id
-                ? { ...ld, currentStage: nextStageNum, updatedAt: today }
+                ? { ...ld, currentStage: nextStageNum, isQueuedForToday: false, updatedAt: today }
                 : ld
             ),
           }));
