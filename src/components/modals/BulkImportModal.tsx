@@ -1,13 +1,23 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Modal } from './Modal';
 import { parsePhoneAndDetectCountry, sanitizePhoneForWhatsApp } from '@/lib/phone';
 import { useCRMStore } from '@/lib/store';
-import { LeadSource } from '@/types/crm';
-import { UploadCloud, CheckCircle2, AlertCircle, FileText, ArrowRight, ShieldAlert, Sparkles } from 'lucide-react';
+import {
+  UploadCloud,
+  CheckCircle2,
+  AlertCircle,
+  FileText,
+  ShieldAlert,
+  Sparkles,
+  FileSpreadsheet,
+  FileUp,
+  X,
+} from 'lucide-react';
 import { CountryBadge } from '../common/CountryBadge';
 import { cleanCompanyName, cleanContactName } from '@/lib/cleaner';
+import { parseExcelWorkbook, RawImportLead } from '@/lib/excel';
 
 interface BulkImportModalProps {
   isOpen: boolean;
@@ -39,13 +49,94 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
   const addBulkLeads = useCRMStore((s) => s.addBulkLeads);
   const niches = useCRMStore((s) => s.niches);
   const leads = useCRMStore((s) => s.leads);
+
+  // Import mode: Excel (.xlsx, .xls, .csv) or Manual Paste Text
+  const [importMode, setImportMode] = useState<'excel' | 'paste'>('excel');
+
+  // Excel file upload state
+  const [excelLeads, setExcelLeads] = useState<RawImportLead[]>([]);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isProcessingFile, setIsProcessingFile] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Paste text state
   const [inputText, setInputText] = useState('');
+
+  // General settings
   const [batchNiche, setBatchNiche] = useState(niches[0]?.name || 'General');
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   const [autoCleanCompany, setAutoCleanCompany] = useState(true);
 
-  // Live parser for lines with in-batch & CRM duplicate detection
-  const parsedRows: ParsedRow[] = useMemo(() => {
+  // File Upload Handler (.xlsx, .xls, .csv)
+  const handleFileProcess = async (file: File) => {
+    setFileError(null);
+    setIsProcessingFile(true);
+
+    try {
+      const validExtensions = ['.xlsx', '.xls', '.csv'];
+      const fileNameLower = file.name.toLowerCase();
+      const isValidExt = validExtensions.some((ext) => fileNameLower.endsWith(ext));
+
+      if (!isValidExt) {
+        setFileError('Please select a valid Excel (.xlsx, .xls) or CSV (.csv) file.');
+        setIsProcessingFile(false);
+        return;
+      }
+
+      const buffer = await file.arrayBuffer();
+      const parsed = parseExcelWorkbook(buffer);
+
+      if (parsed.length === 0) {
+        setFileError('No valid contacts found. Ensure your spreadsheet contains a column with phone numbers or WhatsApp.');
+        setExcelLeads([]);
+        setUploadedFileName(null);
+      } else {
+        setExcelLeads(parsed);
+        setUploadedFileName(file.name);
+      }
+    } catch (err: any) {
+      console.error('Failed to parse Excel file:', err);
+      setFileError('Failed to read spreadsheet file. Please verify file integrity.');
+      setExcelLeads([]);
+      setUploadedFileName(null);
+    } finally {
+      setIsProcessingFile(false);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleFileProcess(file);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      handleFileProcess(file);
+    }
+  };
+
+  const handleClearExcelFile = () => {
+    setExcelLeads([]);
+    setUploadedFileName(null);
+    setFileError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Convert raw leads from either Excel or Text Paste into structured ParsedRows
+  const rawLeadsToProcess = useMemo<RawImportLead[]>(() => {
+    if (importMode === 'excel') {
+      return excelLeads;
+    }
+
     if (!inputText.trim()) return [];
 
     const lines = inputText
@@ -53,18 +144,13 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
       .map((l) => l.trim())
       .filter(Boolean);
 
-    const seenPhonesInBatch = new Set<string>();
-    const seenEmailsInBatch = new Set<string>();
-
-    return lines.map((line, lineIndex) => {
-      // Split by comma or tab or semicolon
+    return lines.map((line) => {
       const parts = line.split(/[,;\t]+/).map((p) => p.trim());
       let name = '';
       let phoneRaw = '';
       let company = '';
       let email = '';
 
-      // Check if any part contains an email
       parts.forEach((p) => {
         if (!email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p)) {
           email = p;
@@ -72,23 +158,19 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
       });
 
       if (parts.length >= 2) {
-        // Test which part looks like phone
         const part0HasDigits = /\d{4,}/.test(parts[0]);
         const part1HasDigits = /\d{4,}/.test(parts[1]);
 
         if (part0HasDigits && !part1HasDigits) {
-          // Phone, Name format
           phoneRaw = parts[0];
           name = parts[1];
           company = parts[2] && parts[2] !== email ? parts[2] : '';
         } else {
-          // Name, Phone format
           name = parts[0];
           phoneRaw = parts[1];
           company = parts[2] && parts[2] !== email ? parts[2] : '';
         }
       } else if (parts.length === 1) {
-        // Just phone or name
         if (/\d{5,}/.test(parts[0])) {
           phoneRaw = parts[0];
           name = 'Prospect';
@@ -97,6 +179,28 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
           phoneRaw = '';
         }
       }
+
+      return {
+        name,
+        phoneRaw,
+        company: company || undefined,
+        email: email || undefined,
+      };
+    });
+  }, [importMode, excelLeads, inputText]);
+
+  // Live parser with in-batch & CRM duplicate detection + Smart Cleaner
+  const parsedRows: ParsedRow[] = useMemo(() => {
+    if (rawLeadsToProcess.length === 0) return [];
+
+    const seenPhonesInBatch = new Set<string>();
+    const seenEmailsInBatch = new Set<string>();
+
+    return rawLeadsToProcess.map((item) => {
+      const name = item.name.trim();
+      const phoneRaw = item.phoneRaw.trim();
+      const company = item.company?.trim() || '';
+      const email = item.email?.trim() || '';
 
       const country = parsePhoneAndDetectCountry(phoneRaw);
       const sanitized = sanitizePhoneForWhatsApp(country.e164 || phoneRaw);
@@ -147,11 +251,10 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
       // Apply smart cleaning if enabled
       const finalName = autoCleanCompany && name ? cleanContactName(name) : (name || 'Unnamed Lead');
       const finalCompany = autoCleanCompany && company ? cleanCompanyName(company) : company;
-
       const isValid = Boolean(finalName && phoneRaw && country.countryCode);
 
       return {
-        raw: line,
+        raw: `${name}, ${phoneRaw}${company ? `, ${company}` : ''}`,
         name: finalName,
         phoneRaw,
         company: finalCompany,
@@ -162,7 +265,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
         duplicateReason,
       };
     });
-  }, [inputText, leads, autoCleanCompany]);
+  }, [rawLeadsToProcess, leads, autoCleanCompany]);
 
   const validFreshCount = parsedRows.filter((r) => r.isValid && !r.isDuplicate).length;
   const duplicateCount = parsedRows.filter((r) => r.isDuplicate).length;
@@ -188,11 +291,15 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
       batchNiche
     );
 
+    // Reset and close
     setInputText('');
+    setExcelLeads([]);
+    setUploadedFileName(null);
     onClose();
   };
 
   const handleLoadSample = () => {
+    setImportMode('paste');
     setInputText(SAMPLE_BULK_INPUT);
   };
 
@@ -201,7 +308,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
       isOpen={isOpen}
       onClose={onClose}
       title="Rapid Bulk Lead Importer"
-      subtitle="Paste 10-20 leads at once (format: Name, Phone, Company or Phone, Name)"
+      subtitle="Import leads from Excel (.xlsx, .xls, .csv) or paste text directly"
       maxWidth="xl"
     >
       <div className="space-y-4">
@@ -229,7 +336,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
           <div className="flex items-start sm:items-center gap-2">
             <Sparkles className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5 sm:mt-0" />
             <span className="text-zinc-200">
-              <strong className="text-emerald-300">Smart Name & Company Cleaner:</strong> Auto-strips SEO junk like <em>&ldquo;- Best Web Design Agency | SEO&rdquo;</em>, <em>&ldquo;LLC&rdquo;</em>, &amp; titles so your outreach looks 100% human.
+              <strong className="text-emerald-300">Smart Name &amp; Company Cleaner:</strong> Auto-strips SEO junk like <em>&ldquo;- Best Web Design Agency | SEO&rdquo;</em>, <em>&ldquo;LLC&rdquo;</em>, &amp; titles so your outreach looks 100% human.
             </span>
           </div>
           <label className="flex items-center gap-1.5 text-xs text-emerald-300 font-bold cursor-pointer select-none shrink-0 self-end sm:self-auto">
@@ -243,27 +350,160 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
           </label>
         </div>
 
-        {/* Input Textarea Header */}
-        <div className="flex items-center justify-between">
-          <label className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
-            Paste Leads (One per line)
-          </label>
+        {/* Format Mode Tabs: Excel File vs Text Paste */}
+        <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
           <button
             type="button"
-            onClick={handleLoadSample}
-            className="text-xs text-emerald-400 hover:text-emerald-300 font-medium underline-offset-2 hover:underline transition-all"
+            onClick={() => setImportMode('excel')}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+              importMode === 'excel'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
+                : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700'
+            }`}
           >
-            Load Sample 8-Lead Batch
+            <FileSpreadsheet className="h-4 w-4" />
+            Upload Excel / CSV (.xlsx, .xls, .csv)
+          </button>
+          <button
+            type="button"
+            onClick={() => setImportMode('paste')}
+            className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+              importMode === 'paste'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/40'
+                : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800 hover:border-zinc-700'
+            }`}
+          >
+            <FileText className="h-4 w-4" />
+            Paste Text (Quick)
           </button>
         </div>
 
-        <textarea
-          rows={5}
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder={`Tanvir Ahmed, +880 1712-345678, LinkedIn, Apex Tech\nSarah Jenkins, +1 (415) 555-2671, Referral, CloudScale\nOliver Smith, +44 7911 123456, Cold Inbound`}
-          className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 p-3 text-xs sm:text-sm font-mono text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
-        />
+        {/* TAB 1: EXCEL / CSV DRAG & DROP UPLOAD */}
+        {importMode === 'excel' && (
+          <div className="space-y-3">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx, .xls, .csv"
+              onChange={handleFileInputChange}
+              className="hidden"
+            />
+
+            {!uploadedFileName ? (
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
+                  isDragging
+                    ? 'border-emerald-500 bg-emerald-950/20 shadow-lg shadow-emerald-950/40'
+                    : 'border-zinc-700 hover:border-emerald-500/60 bg-zinc-900/50 hover:bg-zinc-900/80'
+                }`}
+              >
+                <div className="flex flex-col items-center justify-center space-y-2">
+                  <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 text-emerald-400">
+                    <FileUp className="h-8 w-8 animate-pulse" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-zinc-100">
+                      Click to choose or drag &amp; drop your Excel / CSV file
+                    </p>
+                    <p className="text-xs text-zinc-400 mt-1">
+                      Supports <strong className="text-zinc-200">.xlsx, .xls, and .csv</strong> from Google Maps Scraper, Apollo, Outscraper, etc.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 pt-2 text-[11px] text-zinc-500">
+                    <span className="bg-zinc-800 px-2 py-0.5 rounded border border-zinc-700">Auto-Detects Columns</span>
+                    <span>•</span>
+                    <span>WhatsApp / Phone</span>
+                    <span>•</span>
+                    <span>Name</span>
+                    <span>•</span>
+                    <span>Company</span>
+                    <span>•</span>
+                    <span>Email</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between p-3.5 bg-zinc-900 rounded-2xl border border-emerald-500/30">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-emerald-400 shrink-0">
+                    <FileSpreadsheet className="h-6 w-6" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-zinc-100 truncate">
+                      {uploadedFileName}
+                    </p>
+                    <p className="text-[11px] text-emerald-400">
+                      ✓ Successfully loaded {excelLeads.length} contact rows
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-xs text-zinc-400 hover:text-zinc-200 px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                  >
+                    Change File
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearExcelFile}
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                    title="Remove File"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {fileError && (
+              <div className="flex items-center gap-2 p-2.5 rounded-xl border border-rose-500/40 bg-rose-950/20 text-xs text-rose-300">
+                <AlertCircle className="h-4 w-4 text-rose-400 shrink-0" />
+                <span>{fileError}</span>
+              </div>
+            )}
+
+            {isProcessingFile && (
+              <div className="text-center py-2 text-xs text-emerald-400 animate-pulse">
+                Parsing spreadsheet rows and detecting phone columns...
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 2: MANUAL TEXTAREA PASTE */}
+        {importMode === 'paste' && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold uppercase tracking-wider text-zinc-300">
+                Paste Leads (One per line)
+              </label>
+              <button
+                type="button"
+                onClick={handleLoadSample}
+                className="text-xs text-emerald-400 hover:text-emerald-300 font-medium underline-offset-2 hover:underline transition-all"
+              >
+                Load Sample 8-Lead Batch
+              </button>
+            </div>
+
+            <textarea
+              rows={5}
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder={`Tanvir Ahmed, +880 1712-345678, Apex Tech\nSarah Jenkins, +1 (415) 555-2671, CloudScale\nOliver Smith, +44 7911 123456, Cold Inbound`}
+              className="w-full rounded-xl border border-zinc-700 bg-zinc-800/80 p-3 text-xs sm:text-sm font-mono text-zinc-100 placeholder-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all"
+            />
+          </div>
+        )}
 
         {/* Duplicate Warning Banner */}
         {duplicateCount > 0 && (
@@ -285,7 +525,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
                 </label>
               </div>
               <p className="text-[11px] text-zinc-400">
-                Contacts matching phone numbers or emails already in your CRM or repeated within this batch are highlighted.
+                Contacts matching phone numbers or emails already in your CRM or repeated within this file are highlighted.
               </p>
             </div>
           </div>
@@ -373,7 +613,7 @@ export const BulkImportModal: React.FC<BulkImportModalProps> = ({ isOpen, onClos
                     ? `(${duplicateCount} duplicate${duplicateCount === 1 ? '' : 's'} safely skipped)`
                     : ''
                 }`
-              : 'Add rows above to begin batch import'}
+              : 'Select an Excel file or paste rows above'}
           </span>
           <div className="flex items-center gap-2">
             <button
