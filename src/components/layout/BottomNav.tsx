@@ -3,7 +3,7 @@
 import React from 'react';
 import { useCRMStore } from '@/lib/store';
 import { getTodayISO, isOverdue } from '@/lib/date-utils';
-import { Zap, Users, Calendar, FolderKanban, BarChart3, Layers } from 'lucide-react';
+import { Zap, Users, Calendar, FolderKanban, BarChart3, Layers, CheckSquare } from 'lucide-react';
 
 export const BottomNav: React.FC = () => {
   const activeTab = useCRMStore((s) => s.activeTab);
@@ -11,6 +11,7 @@ export const BottomNav: React.FC = () => {
   const stages = useCRMStore((s) => s.stages);
   const leads = useCRMStore((s) => s.leads);
   const meetings = useCRMStore((s) => s.meetings);
+  const tasks = useCRMStore((s) => s.tasks);
 
   const today = getTodayISO();
   const leadMap = new Map(leads.map((l) => [l.id, l]));
@@ -28,6 +29,10 @@ export const BottomNav: React.FC = () => {
     (m) => m.meetingDate === today && m.outcome === 'pending'
   ).length;
 
+  const activeTasksCount = tasks.filter(
+    (t) => !t.isCompleted && (t.dueDate === today || isOverdue(t.dueDate))
+  ).length;
+
   const navItems = [
     {
       id: 'today',
@@ -39,6 +44,12 @@ export const BottomNav: React.FC = () => {
       id: 'leads',
       label: 'Leads',
       icon: Users,
+    },
+    {
+      id: 'tasks',
+      label: 'Tasks',
+      icon: CheckSquare,
+      badge: activeTasksCount,
     },
     {
       id: 'niches',

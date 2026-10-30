@@ -19,6 +19,7 @@ import { NichesView } from '@/components/views/NichesView';
 import { MeetingsView } from '@/components/views/MeetingsView';
 import { ProjectsFinancialView } from '@/components/views/ProjectsFinancialView';
 import { AnalyticsView } from '@/components/views/AnalyticsView';
+import { TasksView } from '@/components/views/TasksView';
 
 // Modals
 import { NewLeadModal } from '@/components/modals/NewLeadModal';
@@ -30,7 +31,7 @@ import { ProjectModal } from '@/components/modals/ProjectModal';
 import { TaskModal } from '@/components/modals/TaskModal';
 import { TemplateEditorModal } from '@/components/modals/TemplateEditorModal';
 import { BackupRestoreModal } from '@/components/modals/BackupRestoreModal';
-import { Meeting, Project } from '@/types/crm';
+import { Meeting, Project, Task } from '@/types/crm';
 
 function CRMContent() {
   const currentUser = useAuthStore((s) => s.currentUser);
@@ -53,6 +54,7 @@ function CRMContent() {
   const [editingProject, setEditingProject] = useState<Project | undefined>(undefined);
 
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
   const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
 
@@ -127,7 +129,14 @@ function CRMContent() {
             <TodaysWorkView
               onScheduleMeetingForLead={handleScheduleMeetingForLead}
               onOpenMeetingOutcome={(m) => setOutcomeMeeting(m)}
-              onOpenNewTask={() => setIsTaskModalOpen(true)}
+              onOpenNewTask={() => {
+                setEditingTask(undefined);
+                setIsTaskModalOpen(true);
+              }}
+              onEditTask={(t) => {
+                setEditingTask(t);
+                setIsTaskModalOpen(true);
+              }}
             />
           )}
 
@@ -137,6 +146,19 @@ function CRMContent() {
               onOpenNewLead={() => {
                 setNicheForNewLead(undefined);
                 setIsNewLeadOpen(true);
+              }}
+            />
+          )}
+
+          {activeTab === 'tasks' && (
+            <TasksView
+              onOpenNewTask={() => {
+                setEditingTask(undefined);
+                setIsTaskModalOpen(true);
+              }}
+              onEditTask={(t) => {
+                setEditingTask(t);
+                setIsTaskModalOpen(true);
               }}
             />
           )}
@@ -224,7 +246,11 @@ function CRMContent() {
 
       <TaskModal
         isOpen={isTaskModalOpen}
-        onClose={() => setIsTaskModalOpen(false)}
+        onClose={() => {
+          setIsTaskModalOpen(false);
+          setEditingTask(undefined);
+        }}
+        existingTask={editingTask}
       />
 
       <TemplateEditorModal

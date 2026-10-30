@@ -122,6 +122,7 @@ interface CRMState {
 
   // Task Actions
   addTask: (taskInput: Omit<Task, 'id' | 'createdAt'>) => Task;
+  updateTask: (id: string, updates: Partial<Task>) => void;
   toggleTask: (id: string) => void;
   deleteTask: (id: string) => void;
 
@@ -1109,6 +1110,12 @@ export const useCRMStore = create<CRMState>()(
         }));
 
         return newTask;
+      },
+
+      updateTask: (id, updates) => {
+        set((state) => ({
+          tasks: state.tasks.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+        }));
       },
 
       toggleTask: (id) => {

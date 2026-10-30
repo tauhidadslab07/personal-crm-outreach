@@ -15,6 +15,7 @@ import {
   Layers,
   UserCog,
   Database,
+  CheckSquare,
 } from 'lucide-react';
 import { useAuthStore } from '@/lib/auth-store';
 
@@ -32,6 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenTemplates, onOpenBackup,
   const meetings = useCRMStore((s) => s.meetings);
   const projects = useCRMStore((s) => s.projects);
   const niches = useCRMStore((s) => s.niches);
+  const tasks = useCRMStore((s) => s.tasks);
   const currentUser = useAuthStore((s) => s.currentUser);
 
   const today = getTodayISO();
@@ -56,6 +58,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenTemplates, onOpenBackup,
     (p) => p.status === 'in_progress' || p.status === 'revision'
   ).length;
 
+  const activeTasksCount = tasks.filter(
+    (t) => !t.isCompleted && (t.dueDate === today || isOverdue(t.dueDate))
+  ).length;
+
   const navItems = [
     {
       id: 'today',
@@ -72,6 +78,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenTemplates, onOpenBackup,
       icon: Users,
       badge: leads.length,
       badgeColor: 'bg-zinc-800 text-zinc-400',
+    },
+    {
+      id: 'tasks',
+      label: 'Tasks',
+      shortcut: 'T',
+      icon: CheckSquare,
+      badge: activeTasksCount > 0 ? activeTasksCount : undefined,
+      badgeColor: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
     },
     {
       id: 'niches',

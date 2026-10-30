@@ -15,7 +15,7 @@ import { SnoozeModal } from '../modals/SnoozeModal';
 import { SCRIPT_VARIANTS_MAP, interpolateTemplate, buildWhatsAppUrl, WIN_BACK_TEMPLATES, buildQuickMeetPitch } from '@/lib/whatsapp';
 import { getTodayISO, isOverdue, getDaysDifferenceFromToday, formatTime12h, STAGE_TITLES, getDaysAgo } from '@/lib/date-utils';
 import { downloadDatabaseBackup, isWeeklyBackupDue } from '@/lib/backup';
-import { Lead, CadenceStage, CadenceStageNumber, KillSwitchStatus } from '@/types/crm';
+import { Lead, CadenceStage, CadenceStageNumber, KillSwitchStatus, Task } from '@/types/crm';
 import {
   Send,
   Calendar,
@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   Video,
   Clock,
+  Edit2,
   ShieldBan,
   CheckSquare,
   Square,
@@ -56,13 +57,16 @@ interface TodaysWorkViewProps {
   onScheduleMeetingForLead: (leadId: string) => void;
   onOpenMeetingOutcome: (meeting: any) => void;
   onOpenNewTask: () => void;
+  onEditTask?: (task: Task) => void;
 }
 
 export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   onScheduleMeetingForLead,
   onOpenMeetingOutcome,
   onOpenNewTask,
+  onEditTask,
 }) => {
+  const setActiveTab = useCRMStore((s) => s.setActiveTab);
   const leads = useCRMStore((s) => s.leads);
   const stages = useCRMStore((s) => s.stages);
   const meetings = useCRMStore((s) => s.meetings);
@@ -85,7 +89,6 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   const setActiveSenderProfile = useCRMStore((s) => s.setActiveSenderProfile);
   const queueFromPool = useCRMStore((s) => s.queueFromPool);
   const moveAllUnsentStage0ToPool = useCRMStore((s) => s.moveAllUnsentStage0ToPool);
-  const setActiveTab = useCRMStore((s) => s.setActiveTab);
 
   const [activeBucket, setActiveBucket] = useState<'all' | 'engaged' | 'revival' | CadenceStageNumber>('all');
   const [warmthFilter, setWarmthFilter] = useState<'all' | 'hot' | 'warm' | 'cold'>('all');
@@ -267,8 +270,23 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
   // Today's meetings
   const todayMeetings = meetings.filter((m) => m.meetingDate === today);
 
-  // Today's tasks
-  const todayTasks = tasks.filter((t) => t.dueDate === today);
+  // Today's tasks + overdue pending tasks
+  const todayTasks = tasks.filter(
+    (t) => t.dueDate === today || (!t.isCompleted && isOverdue(t.dueDate))
+  );
+
+  const formatTaskTime = (timeStr?: string) => {
+    if (!timeStr) return '';
+    try {
+      const [h, m] = timeStr.split(':');
+      const hour = parseInt(h, 10);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const formattedHour = hour % 12 || 12;
+      return `${formattedHour}:${m} ${ampm}`;
+    } catch {
+      return timeStr;
+    }
+  };
 
   // Today's project deadlines
   const todayProjectDeadlines = projects.filter((p) => p.deliveryDeadline === today);
@@ -1489,61 +1507,136 @@ export const TodaysWorkView: React.FC<TodaysWorkViewProps> = ({
         {/* Daily Tasks Checklist */}
         <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-4 sm:p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-zinc-100 uppercase tracking-wider flex items-center gap-2">
-              <CheckSquare className="h-4 w-4 text-emerald-400" />
-              Today&apos;s Operational Tasks ({todayTasks.length})
-            </h3>
-            <button
-              onClick={onOpenNewTask}
-              className="inline-flex items-center gap-1 rounded-lg bg-zinc-800 px-2 py-1 text-xs font-semibold text-zinc-300 hover:bg-zinc-700"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              New Task
-            </button>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-zinc-100 uppercase tracking-wider flex items-center gap-2">
+                <CheckSquare className="h-4 w-4 text-emerald-400" />
+                Today&apos;s Operational Tasks ({todayTasks.length})
+              </h3>
+              {todayTasks.some((t) => !t.isCompleted && isOverdue(t.dueDate) && t.dueDate !== today) && (
+                <span className="text-[10px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 px-1.5 py-0.5 rounded-full">
+                  Overdue
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setActiveTab('tasks')}
+                className="text-[11px] font-semibold text-zinc-400 hover:text-emerald-400 transition-colors inline-flex items-center gap-1 cursor-pointer"
+              >
+                View All <ArrowRight className="h-3 w-3" />
+              </button>
+              <button
+                onClick={onOpenNewTask}
+                className="inline-flex items-center gap-1 rounded-lg bg-emerald-600/20 border border-emerald-500/30 hover:bg-emerald-600/30 px-2.5 py-1 text-xs font-semibold text-emerald-300 transition-all cursor-pointer"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                New Task
+              </button>
+            </div>
           </div>
 
           {todayTasks.length === 0 ? (
-            <p className="text-xs text-zinc-500 py-3">No tasks due today.</p>
+            <div className="py-4 text-center rounded-xl bg-zinc-950/40 border border-zinc-800/60">
+              <p className="text-xs text-zinc-500">No tasks scheduled for today.</p>
+              <button
+                onClick={onOpenNewTask}
+                className="mt-2 text-xs font-semibold text-emerald-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="h-3 w-3" /> Add a task for today
+              </button>
+            </div>
           ) : (
             <div className="space-y-2">
-              {todayTasks.map((task) => (
-                <div
-                  key={task.id}
-                  onClick={() => toggleTask(task.id)}
-                  className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-all ${
-                    task.isCompleted
-                      ? 'border-zinc-800/60 bg-zinc-900/30 opacity-60'
-                      : 'border-zinc-800 bg-zinc-900/80 hover:border-zinc-700'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {task.isCompleted ? (
-                      <CheckSquare className="h-4 w-4 text-emerald-400 shrink-0" />
-                    ) : (
-                      <Square className="h-4 w-4 text-zinc-500 shrink-0" />
-                    )}
-                    <span
-                      className={`text-xs text-zinc-200 truncate ${
-                        task.isCompleted ? 'line-through text-zinc-500' : ''
-                      }`}
-                    >
-                      {task.title}
-                    </span>
-                  </div>
+              {todayTasks.map((task) => {
+                const timeLabel = formatTaskTime(task.dueTime);
+                const isTaskOverdue = !task.isCompleted && isOverdue(task.dueDate) && task.dueDate !== today;
 
-                  <span
-                    className={`rounded-full px-2 py-0.2 text-[9px] font-bold uppercase ${
-                      task.priority === 'high'
-                        ? 'bg-rose-500/20 text-rose-400'
-                        : task.priority === 'medium'
-                        ? 'bg-amber-500/20 text-amber-400'
-                        : 'bg-zinc-800 text-zinc-400'
+                return (
+                  <div
+                    key={task.id}
+                    className={`group flex items-center justify-between p-2.5 sm:p-3 rounded-xl border transition-all ${
+                      task.isCompleted
+                        ? 'border-zinc-800/60 bg-zinc-900/30 opacity-60'
+                        : isTaskOverdue
+                        ? 'border-rose-500/40 bg-zinc-900/90 shadow-sm'
+                        : 'border-zinc-800 bg-zinc-900/80 hover:border-zinc-700'
                     }`}
                   >
-                    {task.priority}
-                  </span>
-                </div>
-              ))}
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={() => toggleTask(task.id)}
+                        className="text-zinc-500 hover:text-emerald-400 transition-colors cursor-pointer shrink-0"
+                      >
+                        {task.isCompleted ? (
+                          <CheckSquare className="h-4 w-4 text-emerald-400 shrink-0" />
+                        ) : (
+                          <Square className="h-4 w-4 text-zinc-500 shrink-0" />
+                        )}
+                      </button>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span
+                            onClick={() => toggleTask(task.id)}
+                            className={`text-xs font-semibold select-none cursor-pointer truncate ${
+                              task.isCompleted ? 'line-through text-zinc-500' : 'text-zinc-200 hover:text-emerald-300'
+                            }`}
+                          >
+                            {task.title}
+                          </span>
+
+                          {timeLabel && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono text-cyan-300 bg-cyan-950/60 border border-cyan-500/30 px-1.5 py-0.2 rounded-md">
+                              <Clock className="h-2.5 w-2.5 text-cyan-400" />
+                              {timeLabel}
+                            </span>
+                          )}
+
+                          {isTaskOverdue && (
+                            <span className="text-[10px] font-mono font-bold text-rose-400 bg-rose-950/60 border border-rose-500/30 px-1.5 py-0.2 rounded-md">
+                              Overdue ({task.dueDate})
+                            </span>
+                          )}
+                        </div>
+
+                        {(task.clientName || task.category) && (
+                          <div className="flex items-center gap-2 text-[10px] text-zinc-400 mt-0.5">
+                            {task.category && <span className="text-zinc-500">[{task.category}]</span>}
+                            {task.clientName && <span className="text-zinc-300 font-medium">👤 {task.clientName}</span>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${
+                          task.priority === 'high'
+                            ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                            : task.priority === 'medium'
+                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                            : 'bg-zinc-800 text-zinc-400'
+                        }`}
+                      >
+                        {task.priority}
+                      </span>
+
+                      {onEditTask && (
+                        <button
+                          type="button"
+                          onClick={() => onEditTask(task)}
+                          title="Edit task"
+                          className="opacity-0 group-hover:opacity-100 p-1 text-zinc-400 hover:text-cyan-300 transition-opacity rounded hover:bg-zinc-800 cursor-pointer"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

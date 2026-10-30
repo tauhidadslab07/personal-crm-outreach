@@ -108,10 +108,13 @@ export type Task = {
   id: string;
   title: string;
   dueDate: string; // YYYY-MM-DD
+  dueTime?: string; // HH:mm (optional/non-mandatory time)
   priority: TaskPriority;
   isCompleted: boolean;
   leadId?: string;
   clientName?: string;
+  notes?: string;
+  category?: string;
   createdAt: string;
 };
 
@@ -146,7 +149,7 @@ export type UserAccount = {
   lastLogin?: string;
 };
 
-export type CRMTab = 'today' | 'leads' | 'niches' | 'meetings' | 'projects' | 'analytics' | 'users';
+export type CRMTab = 'today' | 'leads' | 'tasks' | 'niches' | 'meetings' | 'projects' | 'analytics' | 'users';
 
 export type SenderProfile = {
   id: string;
