@@ -18,6 +18,11 @@ export const metadata: Metadata = {
   description:
     'High-performance zero-friction CRM for client hunting, 5-stage automated WhatsApp cadences, intelligent meeting scheduling, and performance analytics.',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/icon.svg',
+    shortcut: '/icon.svg',
+    apple: '/icon.svg',
+  },
 };
 
 export const viewport: Viewport = {
