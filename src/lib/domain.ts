@@ -5,6 +5,23 @@
 export function extractDomain(input?: string): string {
   if (!input) return '';
   let str = input.trim().toLowerCase();
+  
+  // Ignore null, undefined, or empty markers
+  if (str === 'null' || str === 'undefined' || str === 'n/a' || str === 'none') {
+    return '';
+  }
+
+  // Filter out Google Search, Google Maps, and Google Ad redirect links
+  if (
+    str.includes('google.com/maps') ||
+    str.includes('maps.google.') ||
+    str.includes('google.com/aclk') ||
+    str.includes('google.com/search') ||
+    str.includes('google.com/url')
+  ) {
+    return '';
+  }
+
   // Strip protocol
   str = str.replace(/^https?:\/\//i, '');
   // Strip www
@@ -13,6 +30,12 @@ export function extractDomain(input?: string): string {
   str = str.split('/')[0].split('?')[0].split('#')[0];
   // Strip port or trailing punctuation
   str = str.replace(/[:].*$/, '').trim();
+
+  // If host ends with google.com or is too short
+  if (str === 'google.com' || str.endsWith('.google.com') || !str.includes('.')) {
+    return '';
+  }
+
   return str;
 }
 

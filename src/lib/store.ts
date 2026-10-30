@@ -17,6 +17,7 @@ import {
   SenderProfile,
 } from '@/types/crm';
 import { getInitialSeedData, DEFAULT_NICHES, DEFAULT_SENDER_PROFILES } from './seed-data';
+import { DEFAULT_BD_LEADS, DEFAULT_BD_STAGES } from './bd-leads-data';
 import { addDays, CADENCE_INTERVAL_DAYS, getTodayISO, STAGE_TITLES } from './date-utils';
 import { buildWhatsAppUrl, getPrefilledMessageForStage, WIN_BACK_TEMPLATES, interpolateTemplate } from './whatsapp';
 import { parsePhoneAndDetectCountry, sanitizePhoneForWhatsApp } from './phone';
@@ -87,6 +88,7 @@ interface CRMState {
     queueCountImmediately?: number
   ) => number;
   autoClassifyAllLeadsNiches: () => { agencyCount: number; developerCount: number; updatedCount: number };
+  importBDLeadsPool: () => number;
   queueLeadForToday: (leadId: string) => void;
   queueBatchLeadsForToday: (leadIds: string[]) => number;
   queueFromPool: (count: number, niche?: string) => number;
@@ -408,6 +410,24 @@ export const useCRMStore = create<CRMState>()(
         });
 
         return { agencyCount, developerCount, updatedCount };
+      },
+
+      importBDLeadsPool: () => {
+        const currentLeads = get().leads;
+        const currentStages = get().stages;
+        const existingPhones = new Set(currentLeads.map((l) => l.phoneSanitized));
+
+        const leadsToAdd = DEFAULT_BD_LEADS.filter((l) => !existingPhones.has(l.phoneSanitized));
+        const addedLeadIds = new Set(leadsToAdd.map((l) => l.id));
+        const stagesToAdd = DEFAULT_BD_STAGES.filter((s) => addedLeadIds.has(s.leadId));
+
+        if (leadsToAdd.length > 0) {
+          set({
+            leads: [...currentLeads, ...leadsToAdd],
+            stages: [...currentStages, ...stagesToAdd],
+          });
+        }
+        return leadsToAdd.length;
       },
 
       queueLeadForToday: (leadId) => {
@@ -1134,14 +1154,14 @@ export const useCRMStore = create<CRMState>()(
             l.name === 'Elena Rostova'
         );
 
-        if (hasLegacyDummyData) {
+        if (hasLegacyDummyData || persistedLeads.length === 0) {
           return {
             ...currentState,
-            leads: [],
-            stages: [],
-            meetings: [],
-            projects: [],
-            tasks: [],
+            leads: currentState.leads,
+            stages: currentState.stages,
+            meetings: persistedState?.meetings || [],
+            projects: persistedState?.projects || [],
+            tasks: persistedState?.tasks || [],
             niches: DEFAULT_NICHES,
           };
         }

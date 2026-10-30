@@ -119,14 +119,22 @@ export const DomainBadge: React.FC<DomainBadgeProps> = ({
   }
 
   return (
-    <button
-      type="button"
-      onClick={handleStartEdit}
-      title="Add website domain for this lead"
-      className={`inline-flex items-center gap-1.5 rounded-xl border border-dashed border-zinc-700/80 hover:border-cyan-500/60 bg-zinc-900/40 hover:bg-zinc-800/80 px-2.5 py-1 text-xs font-mono text-zinc-400 hover:text-cyan-300 transition-all cursor-pointer ${className}`}
-    >
-      <Globe className="h-3.5 w-3.5 text-zinc-500 hover:text-cyan-400" />
-      <span>+ Add Domain</span>
-    </button>
+    <div className={`group inline-flex items-center gap-1 ${className}`}>
+      <span
+        title="No website domain recorded (null)"
+        className="inline-flex items-center gap-1.5 rounded-xl bg-zinc-900/60 border border-dashed border-zinc-800 px-2 py-0.5 text-xs font-mono text-zinc-500 shadow-sm"
+      >
+        <Globe className="h-3 w-3 text-zinc-600 shrink-0" />
+        <span className="italic font-semibold text-zinc-500">null</span>
+      </span>
+      <button
+        type="button"
+        onClick={handleStartEdit}
+        title="Add website domain"
+        className="opacity-40 group-hover:opacity-100 p-1 text-zinc-500 hover:text-cyan-300 transition-all rounded hover:bg-zinc-800 cursor-pointer"
+      >
+        <Plus className="h-3 w-3" />
+      </button>
+    </div>
   );
 };

@@ -1,5 +1,6 @@
 import { Lead, CadenceStage, Meeting, Project, Task, CadenceTemplate, Niche, SenderProfile } from '@/types/crm';
 import { DEFAULT_CADENCE_TEMPLATES } from './whatsapp';
+import { DEFAULT_BD_LEADS, DEFAULT_BD_STAGES } from './bd-leads-data';
 
 export const DEFAULT_SENDER_PROFILES: SenderProfile[] = [
   {
@@ -52,8 +53,8 @@ export function getInitialSeedData(): {
   senderProfiles: SenderProfile[];
 } {
   return {
-    leads: [],
-    stages: [],
+    leads: DEFAULT_BD_LEADS,
+    stages: DEFAULT_BD_STAGES,
     meetings: [],
     projects: [],
     tasks: [],

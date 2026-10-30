@@ -58,6 +58,18 @@ export function classifyLeadNiche(params: {
     /\bbuilders\b/i,
     /\bservices\b/i,
     /\bdesigners\b/i, // Plural
+    /\bsoft\b/i,
+    /\bsoftware\b/i,
+    /\bhost\b/i,
+    /\bhosting\b/i,
+    /\bit\b/i,
+    /আইটি/i,
+    /টেকনোলজি/i,
+    /সফটওয়্যার/i,
+    /সফটওয়্যার/i,
+    /সলিউশন/i,
+    /ডিজিটাল/i,
+    /হোস্ট/i,
   ];
 
   // 2. Strong individual developer keywords
@@ -65,6 +77,10 @@ export function classifyLeadNiche(params: {
     /\bfreelance\b/i,
     /\bfreelancer\b/i,
     /\bweb developer\b/i,
+    /\bwordpress developer\b/i,
+    /\bmern\b/i,
+    /\bdesigner and developer\b/i,
+    /\bweb designer and developer\b/i,
     /\bfrontend\b/i,
     /\bfront-end\b/i,
     /\bbackend\b/i,

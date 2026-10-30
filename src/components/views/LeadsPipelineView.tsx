@@ -69,6 +69,7 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
   const queueFromPool = useCRMStore((s) => s.queueFromPool);
   const removeFromTodayQueue = useCRMStore((s) => s.removeFromTodayQueue);
   const sendAndAutoAdvance = useCRMStore((s) => s.sendAndAutoAdvance);
+  const importBDLeadsPool = useCRMStore((s) => s.importBDLeadsPool);
 
   const [viewMode, setViewMode] = useState<'table' | 'kanban'>('table');
   const [filterStage, setFilterStage] = useState<string>('all');
@@ -143,6 +144,16 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
     setToastMessage(
       `✓ Auto-classified all leads: ${agCount} Agencies (🏢) and ${devCount} Developers (💻)!`
     );
+    setTimeout(() => setToastMessage(null), 4500);
+  };
+
+  const handleImportBDLeads = () => {
+    const count = importBDLeadsPool();
+    if (count > 0) {
+      setToastMessage(`✓ ${count} Bangladesh Web Developer & Agency leads added to pool! Domains synced.`);
+    } else {
+      setToastMessage(`ℹ All 212 Bangladesh leads are already in your pipeline pool.`);
+    }
     setTimeout(() => setToastMessage(null), 4500);
   };
 
@@ -344,6 +355,16 @@ export const LeadsPipelineView: React.FC<LeadsPipelineViewProps> = ({
             <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
             <span className="hidden md:inline">⚡ Auto-Classify Niches</span>
             <span className="md:hidden">Classify</span>
+          </button>
+
+          <button
+            onClick={handleImportBDLeads}
+            title="Sync all 212 verified Dhaka Web Developer & Agency leads (domains cleaned & null marked)"
+            className="flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-950/30 px-3 py-1.5 text-xs font-bold text-emerald-300 hover:bg-emerald-900/50 hover:text-white transition-all active:scale-95 shadow-sm cursor-pointer"
+          >
+            <Globe className="h-3.5 w-3.5 text-emerald-400" />
+            <span className="hidden md:inline">🇧🇩 Sync BD Leads (212)</span>
+            <span className="md:hidden">🇧🇩 BD Leads</span>
           </button>
 
           <button
